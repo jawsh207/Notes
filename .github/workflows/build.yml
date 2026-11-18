@@ -95,10 +95,20 @@ jobs:
               exit 1
             fi
             # Checks the key before Gradle does, whose error for a wrong key is just "null".
-            if ! ALIASES=$(keytool -list -keystore "$RUNNER_TEMP/signing.jks" -storepass "$PASS" 2>/dev/null | grep -i 'PrivateKeyEntry' | cut -d, -f1); then
-              echo "::error::The ${VARIANT^^} password secret doesn't open the ${VARIANT^^} keystore secret. Check both were pasted in full, with no extra spaces or line breaks."
+            # keytool prints its errors on standard output, so both are kept together.
+            if ! LISTING=$(keytool -list -keystore "$RUNNER_TEMP/signing.jks" -storepass "$PASS" 2>&1); then
+              OTHER="$DEV_KEYSTORE_PASSWORD"; [ "$VARIANT" = dev ] && OTHER="$RELEASE_KEYSTORE_PASSWORD"
+              OTHER="${OTHER#"${OTHER%%[![:space:]]*}"}"; OTHER="${OTHER%"${OTHER##*[![:space:]]}"}"
+              if [ -n "$OTHER" ] && keytool -list -keystore "$RUNNER_TEMP/signing.jks" -storepass "$OTHER" >/dev/null 2>&1; then
+                echo "::error::The DEV_KEYSTORE_PASSWORD and RELEASE_KEYSTORE_PASSWORD secrets look swapped."
+              elif grep -qi 'password was incorrect' <<< "$LISTING"; then
+                echo "::error::The ${VARIANT^^}_KEYSTORE_PASSWORD secret is wrong for this keystore. Paste it again."
+              else
+                echo "::error::The ${VARIANT^^}_KEYSTORE_BASE64 secret looks cut off or damaged ($(stat -c %s "$RUNNER_TEMP/signing.jks") bytes decoded). Paste the whole value again."
+              fi
               exit 1
             fi
+            ALIASES=$(grep -i 'PrivateKeyEntry' <<< "$LISTING" | cut -d, -f1 || true)
             if ! grep -qx "$ALIAS" <<< "$ALIASES"; then
               if [ "$ALIAS" = notes ] && grep -qx notes-dev <<< "$ALIASES"; then
                 echo "::error::The RELEASE_KEYSTORE secrets hold the dev key. The dev and release secrets look swapped."
