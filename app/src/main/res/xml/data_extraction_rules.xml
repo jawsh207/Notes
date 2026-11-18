@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The notes themselves live in the user's folder, not the app. Only settings are backed up;
+     the folder access grant can't move to another phone, so the folder is picked again there. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="datastore/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="datastore/" />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A page with a folded top corner and three lines of writing, inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- The page, with its top-right corner cut off for the fold. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M40,32 L60,32 L72,44 L72,72 Q72,76 68,76 L40,76 Q36,76 36,72 L36,36 Q36,32 40,32 Z
+            M43,50 L65,50 L65,53.5 L43,53.5 Z
+            M43,58 L65,58 L65,61.5 L43,61.5 Z
+            M43,66 L57,66 L57,69.5 L43,69.5 Z" />
+    <!-- The fold. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.7"
+        android:pathData="M60,32 L72,44 L63,44 Q60,44 60,41 Z" />
+</vector>

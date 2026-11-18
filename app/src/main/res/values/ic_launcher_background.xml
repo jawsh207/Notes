@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Warm amber, behind the white page glyph. -->
+    <color name="ic_launcher_background">#E8A33D</color>
+</resources>

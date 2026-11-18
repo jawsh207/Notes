@@ -1,0 +1,4 @@
+<resources>
+    <!-- Test builds install beside the release; this tells them apart. -->
+    <string name="app_name">Notes Dev</string>
+</resources>
