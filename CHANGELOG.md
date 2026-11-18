@@ -2,7 +2,7 @@
 
 What's new in each release of Notes. The newest is at the top.
 
-## 1.0.0
+## 0.1.0
 
 - Notes are plain Markdown (.md) files in a folder you choose; no account and no cloud. A welcome screen walks you through picking it.
 - A pinned welcome note with an example of every kind of formatting, added the first time you open a folder.
