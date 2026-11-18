@@ -19,9 +19,9 @@ app reads and writes plain Markdown (`.md`) files in a folder on your phone that
 
 On first launch, pick (or create) a folder with the system folder picker. The app asks for no
 storage permission: the picker gives it access to that folder and nothing else. It asks to show
-notifications the first time you set a reminder. If the folder has no notes yet, the app puts a
-pinned "Welcome to Notes" note in it, with an example of each kind of Markdown it formats; edit
-or delete it as you like. It's only made once per phone.
+notifications the first time you set a reminder. The app also puts a pinned "Welcome to Notes"
+note at the top of the folder, with an example of each kind of Markdown it formats; edit or
+delete it as you like. It's only made once per phone, and not if the folder already has one.
 
 It works like Google Keep:
 

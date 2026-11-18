@@ -220,14 +220,15 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * The first time this phone opens a folder, makes the welcome note in it, but only if the
-     * folder has no notes yet: a folder of someone's existing notes is left as it is.
+     * The first time this phone opens a folder, makes the welcome note at its top, whether or not
+     * it already has notes. If the folder already holds one (made on another phone that shares
+     * it), no second copy is added.
      */
     private suspend fun welcome(opened: NoteStore) {
         if (settings.welcomed.first()) return
         val library = _library.value ?: return
         settings.setWelcomed()
-        if (library.notes.isNotEmpty() || library.trash.isNotEmpty()) return
+        if (library.notes.any { it.folder.isEmpty() && it.title.equals(WELCOME_TITLE, ignoreCase = true) }) return
         val note = runCatching {
             withContext(Dispatchers.IO) { opened.create(opened.rootId, "", WELCOME_TITLE, WELCOME_TEXT) }
         }.getOrNull() ?: return

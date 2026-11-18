@@ -83,10 +83,11 @@ skipped. Characters that some computers don't allow in file names (such as `/` o
 turned into spaces when a title becomes a file name, and a number is added if the name is
 taken ("Ideas 2.md").
 
-**Welcome note.** The first time the app opens a folder that has no notes, it makes a pinned
-"Welcome to Notes" note there: a hello and an example of every kind of formatting, to compare
-in the editing and formatted views. It's an ordinary note to edit or delete, and it's only made
-once per phone, so a folder of existing notes is never touched.
+**Welcome note.** The first time the app opens a folder, it makes a pinned "Welcome to Notes"
+note at its top, even if the folder already has notes: a hello and an example of every kind of
+formatting, to compare in the editing and formatted views. It's an ordinary note to edit or
+delete. It's only made once per phone, and not when the folder already has a "Welcome to Notes"
+note (one made by another phone that shares the folder, say).
 
 **New notes and lists.** New note makes "Untitled.md" in the current folder; New list makes it
 with one empty checklist item. Either opens with the title ready to type. Leave the title blank

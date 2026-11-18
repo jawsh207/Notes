@@ -1,6 +1,6 @@
 package app.slate.notes.data
 
-/** The title of the note made the first time the app opens an empty folder. */
+/** The title of the note made the first time the app opens a folder. */
 const val WELCOME_TITLE = "Welcome to Notes"
 
 /**
