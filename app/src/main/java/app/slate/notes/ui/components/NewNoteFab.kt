@@ -8,6 +8,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import app.slate.notes.R
@@ -36,11 +38,14 @@ fun NewNoteFab(onNote: () -> Unit, onList: () -> Unit, extra: List<FabChoice> = 
         expanded = open,
         button = {
             ToggleFloatingActionButton(checked = open, onCheckedChange = { open = it }) {
-                // A quarter turn as it opens: + becomes ×.
+                // A quarter turn as it opens: + becomes ×. The button doesn't colour its icon itself,
+                // so the icon follows its container from primary container (closed) to primary (open).
+                val scheme = MaterialTheme.colorScheme
                 Icon(
                     Icons.Rounded.Add,
                     stringResource(if (open) R.string.close_menu else R.string.new_note),
                     Modifier.graphicsLayer { rotationZ = checkedProgress * 45f },
+                    tint = lerp(scheme.onPrimaryContainer, scheme.onPrimary, checkedProgress),
                 )
             }
         },

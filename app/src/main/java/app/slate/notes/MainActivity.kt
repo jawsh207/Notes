@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import app.slate.notes.reminders.ReminderAlarms
 import app.slate.notes.ui.NotesApp
 import app.slate.notes.ui.NotesViewModel
@@ -25,7 +27,11 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handle(intent)
         setContent {
             NotesTheme {
-                NotesApp(viewModel)
+                // A Surface sets the text and icon colour for the theme; screens drawn outside a
+                // Scaffold (the folder picker screen, loading) would otherwise get black text.
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    NotesApp(viewModel)
+                }
             }
         }
     }
