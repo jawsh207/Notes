@@ -80,13 +80,28 @@ jobs:
               echo "::error::RELEASE_KEYSTORE_BASE64 is not set; refusing to publish an unsigned release."
               exit 1
             fi
-            echo "VARIANT=release" >> "$GITHUB_ENV"
+            VARIANT=release; echo "VARIANT=$VARIANT" >> "$GITHUB_ENV"
           else
             KEY="$DEV_KEYSTORE_BASE64"; PASS="$DEV_KEYSTORE_PASSWORD"; ALIAS=notes-dev
-            echo "VARIANT=dev" >> "$GITHUB_ENV"
+            VARIANT=dev; echo "VARIANT=$VARIANT" >> "$GITHUB_ENV"
           fi
           if [ -n "$KEY" ]; then
             echo "$KEY" | base64 -d > "$RUNNER_TEMP/signing.jks"
+            # Checks the key before Gradle does, whose error for a wrong key is just "null".
+            if ! ALIASES=$(keytool -list -keystore "$RUNNER_TEMP/signing.jks" -storepass "$PASS" 2>/dev/null | grep -i 'PrivateKeyEntry' | cut -d, -f1); then
+              echo "::error::The ${VARIANT^^} password secret doesn't open the ${VARIANT^^} keystore secret. Check both were pasted in full, with no extra spaces or line breaks."
+              exit 1
+            fi
+            if ! grep -qx "$ALIAS" <<< "$ALIASES"; then
+              if [ "$ALIAS" = notes ] && grep -qx notes-dev <<< "$ALIASES"; then
+                echo "::error::The RELEASE_KEYSTORE secrets hold the dev key. The dev and release secrets look swapped."
+              elif [ "$ALIAS" = notes-dev ] && grep -qx notes <<< "$ALIASES"; then
+                echo "::error::The DEV_KEYSTORE secrets hold the release key. The dev and release secrets look swapped."
+              else
+                echo "::error::The ${VARIANT^^} keystore has no key called $ALIAS (it has: $(echo $ALIASES))."
+              fi
+              exit 1
+            fi
             {
               echo "ORG_GRADLE_PROJECT_RELEASE_STORE_FILE=$RUNNER_TEMP/signing.jks"
               echo "ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD=$PASS"
