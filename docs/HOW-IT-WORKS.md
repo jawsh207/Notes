@@ -83,6 +83,11 @@ skipped. Characters that some computers don't allow in file names (such as `/` o
 turned into spaces when a title becomes a file name, and a number is added if the name is
 taken ("Ideas 2.md").
 
+**Welcome note.** The first time the app opens a folder that has no notes, it makes a pinned
+"Welcome to Notes" note there: a hello and an example of every kind of formatting, to compare
+in the editing and formatted views. It's an ordinary note to edit or delete, and it's only made
+once per phone, so a folder of existing notes is never touched.
+
 **New notes and lists.** New note makes "Untitled.md" in the current folder; New list makes it
 with one empty checklist item. Either opens with the title ready to type. Leave the title blank
 and the note is named after its first line when you leave; leave the whole note empty and the
@@ -148,5 +153,6 @@ trashed elsewhere go back to the top folder.
 | Sorting | `data/Sorting.kt` |
 | Search | `data/Search.kt` |
 | Settings | `data/Settings.kt` |
+| The welcome note's text | `data/Welcome.kt` |
 | Sharing a note and opening links | `util/Share.kt` |
 | What a note, folder and the whole folder's contents are | `data/Models.kt` |

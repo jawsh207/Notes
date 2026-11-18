@@ -73,6 +73,14 @@ class Settings(context: Context) {
         store.edit { it[MONOSPACE] = on }
     }
 
+    /** Whether the welcome note has already been offered on this phone, so it's only ever made once. */
+    val welcomed: Flow<Boolean> = store.data.map { it[WELCOMED] ?: false }
+
+    /** Records that the welcome note was offered. */
+    suspend fun setWelcomed() {
+        store.edit { it[WELCOMED] = true }
+    }
+
     /** Notes show as a two-column grid of cards rather than one card per row. */
     val grid: Flow<Boolean> = store.data.map { it[GRID] ?: true }
 
@@ -117,6 +125,7 @@ class Settings(context: Context) {
         val SORT = stringPreferencesKey("sort")
         val OPEN_FORMATTED = booleanPreferencesKey("open_formatted")
         val MONOSPACE = booleanPreferencesKey("monospace")
+        val WELCOMED = booleanPreferencesKey("welcomed")
         val GRID = booleanPreferencesKey("grid")
         val TICKED_TO_BOTTOM = booleanPreferencesKey("ticked_to_bottom")
         val TRASH_LOG = stringSetPreferencesKey("trash_log")

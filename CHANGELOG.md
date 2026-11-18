@@ -5,6 +5,7 @@ What's new in each release of Notes. The newest is at the top.
 ## 1.0.0
 
 - Notes are plain Markdown (.md) files in a folder you choose; no account and no cloud.
+- A pinned welcome note with an example of every kind of formatting, made when you start with an empty folder.
 - Notes show as a grid of cards (or a list), with pinned notes at the top, as in Google Keep.
 - Checklists: tick items off, add items with Enter, indent them, and keep ticked items folded away at the bottom. Turn any note into a checklist and back.
 - Colours, labels, pins, archive and reminders, kept inside each note's file so they travel with it.

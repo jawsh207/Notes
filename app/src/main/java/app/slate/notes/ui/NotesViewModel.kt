@@ -16,6 +16,8 @@ import app.slate.notes.data.Settings
 import app.slate.notes.data.SortOrder
 import app.slate.notes.data.TrashEntry
 import app.slate.notes.data.UNTITLED
+import app.slate.notes.data.WELCOME_TEXT
+import app.slate.notes.data.WELCOME_TITLE
 import app.slate.notes.data.cleanLabel
 import app.slate.notes.data.noteInfoOf
 import app.slate.notes.data.readMeta
@@ -195,7 +197,10 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         fun watchAll() {
             _library.value?.let { library -> watched.value = listOf(library.rootId) + library.folders.map { it.id } }
         }
-        if (rescan(opened)) watchAll()
+        if (rescan(opened)) {
+            welcome(opened)
+            watchAll()
+        }
         launch {
             merge(
                 pokes,
@@ -212,6 +217,23 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 _session.value?.checkDisk()
             }
         }
+    }
+
+    /**
+     * The first time this phone opens a folder, makes the welcome note in it, but only if the
+     * folder has no notes yet: a folder of someone's existing notes is left as it is.
+     */
+    private suspend fun welcome(opened: NoteStore) {
+        if (settings.welcomed.first()) return
+        val library = _library.value ?: return
+        settings.setWelcomed()
+        if (library.notes.isNotEmpty() || library.trash.isNotEmpty()) return
+        val note = runCatching {
+            withContext(Dispatchers.IO) { opened.create(opened.rootId, "", WELCOME_TITLE, WELCOME_TEXT) }
+        }.getOrNull() ?: return
+        addToLibrary(note)
+        _infos.value = _infos.value + (note.id to noteInfoOf(WELCOME_TEXT, note.title))
+        poke()
     }
 
     private fun ticks(every: Long): Flow<Unit> = flow {
