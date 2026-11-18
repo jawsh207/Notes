@@ -1,0 +1,115 @@
+package app.slate.notes.ui.browse
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Label
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.slate.notes.R
+import app.slate.notes.data.ATTACHMENTS
+import app.slate.notes.data.Library
+import app.slate.notes.data.NoteInfo
+import app.slate.notes.data.sortFolders
+import app.slate.notes.ui.NotesViewModel
+import app.slate.notes.ui.Screen
+import app.slate.notes.ui.components.ListRow
+import app.slate.notes.ui.components.SEGMENT_GAP
+import app.slate.notes.ui.components.SectionHeader
+import app.slate.notes.ui.components.segmentShape
+
+/**
+ * The Browse tab, in place of Google Keep's side drawer: Reminders, Archive and Trash, then
+ * every label and the folders at the top of the notes folder, each with how many notes it holds.
+ */
+@Composable
+fun BrowseTab(viewModel: NotesViewModel, contentPadding: PaddingValues, listState: LazyListState, open: (Screen) -> Unit) {
+    val library by viewModel.library.collectAsStateWithLifecycle()
+    val infos by viewModel.infos.collectAsStateWithLifecycle()
+    val labels by viewModel.labels.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val current = library
+
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = viewModel::refresh,
+        modifier = Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding()),
+    ) {
+        if (current == null) {
+            Box(Modifier.fillMaxSize().padding(top = 96.dp), contentAlignment = Alignment.TopCenter) { LoadingIndicator() }
+        } else {
+            val folders = sortFolders(current.folders.filter { it.parentPath == "" && !it.name.equals(ATTACHMENTS, ignoreCase = true) })
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 8.dp, bottom = contentPadding.calculateBottomPadding() + 96.dp),
+                verticalArrangement = Arrangement.spacedBy(SEGMENT_GAP),
+            ) {
+                val places = listOf(
+                    Place(Icons.Outlined.Alarm, R.string.reminders, current.count(infos) { it?.meta?.reminder != null }, Screen.Reminders),
+                    Place(Icons.Outlined.Archive, R.string.archive, current.count(infos) { it?.meta?.archived == true }, Screen.Archive),
+                    Place(Icons.Outlined.Delete, R.string.trash, current.trash.size, Screen.Trash),
+                )
+                itemsIndexed(places, key = { _, place -> "place:${place.title}" }) { index, place ->
+                    BrowseRow(place.icon, stringResource(place.title), place.count, index, places.size, Modifier.animateItem()) { open(place.screen) }
+                }
+                if (labels.isNotEmpty()) {
+                    item(key = "labels") { SectionHeader(stringResource(R.string.labels), Modifier.animateItem()) }
+                    itemsIndexed(labels, key = { _, label -> "label:$label" }) { index, label ->
+                        val count = current.count(infos) { info -> info?.meta?.tags?.any { it.equals(label, ignoreCase = true) } == true }
+                        BrowseRow(Icons.AutoMirrored.Outlined.Label, label, count, index, labels.size, Modifier.animateItem()) { open(Screen.Label(label)) }
+                    }
+                }
+                if (folders.isNotEmpty()) {
+                    item(key = "folders") { SectionHeader(stringResource(R.string.folders), Modifier.animateItem()) }
+                    itemsIndexed(folders, key = { _, folder -> "folder:${folder.id}" }) { index, folder ->
+                        val count = current.notes.count { it.folder == folder.path || it.folder.startsWith(folder.path + "/") }
+                        BrowseRow(Icons.Outlined.Folder, folder.name, count, index, folders.size, Modifier.animateItem()) { open(Screen.Folder(folder.path)) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One of the fixed places at the top of Browse. */
+private class Place(val icon: ImageVector, val title: Int, val count: Int, val screen: Screen)
+
+/** How many notes (not in the trash) [test] picks out. */
+private fun Library.count(infos: Map<String, NoteInfo>, test: (NoteInfo?) -> Boolean): Int = notes.count { test(infos[it.id]) }
+
+/** A row in Browse: an icon, a name, how many notes, and an arrow. */
+@Composable
+fun BrowseRow(icon: ImageVector, title: String, count: Int, index: Int, size: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ListRow(
+        icon = icon,
+        title = title,
+        summary = pluralStringResource(R.plurals.note_count, count, count),
+        shape = segmentShape(index, size),
+        onClick = onClick,
+        trailing = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        modifier = modifier.padding(horizontal = 16.dp),
+    )
+}

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -49,20 +48,22 @@ import app.slate.notes.data.searchNotes
 import app.slate.notes.ui.NotesViewModel
 import app.slate.notes.ui.components.EmptyState
 import app.slate.notes.ui.components.NoteCard
-import app.slate.notes.ui.components.SEGMENT_GAP
-import app.slate.notes.ui.components.segmentShape
-import app.slate.notes.ui.notes.NoteActions
+import app.slate.notes.ui.notes.NoteGrid
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 
 /**
- * Finding notes: every word typed must appear in the title or the text. Title matches come
- * first; each result shows the bit of text around the match.
+ * Finding notes, archived ones too: every word typed must appear in the title, the text or a
+ * label. Title matches come first; each card shows the bit of text around the match.
  */
 @Composable
-fun SearchScreen(viewModel: NotesViewModel, actions: NoteActions, onBack: () -> Unit) {
+fun SearchScreen(viewModel: NotesViewModel, onOpen: (String) -> Unit, onBack: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val library by viewModel.library.collectAsStateWithLifecycle()
-    val texts by viewModel.texts.collectAsStateWithLifecycle()
-    val previews by viewModel.previews.collectAsStateWithLifecycle()
+    val infos by viewModel.infos.collectAsStateWithLifecycle()
+    val inGrid by viewModel.grid.collectAsStateWithLifecycle()
+    // Labels are searched along with the text.
+    val texts = remember(infos) { infos.mapValues { (_, info) -> info.body + "\n" + info.meta.tags.joinToString(" ") } }
     val hits = remember(query, library, texts) { searchNotes(library?.notes.orEmpty(), texts, query) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -107,32 +108,38 @@ fun SearchScreen(viewModel: NotesViewModel, actions: NoteActions, onBack: () -> 
             }
         },
     ) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().imePadding(),
-            contentPadding = PaddingValues(top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 24.dp),
-            verticalArrangement = Arrangement.spacedBy(SEGMENT_GAP),
-        ) {
-            if (query.isNotBlank() && hits.isEmpty()) {
+        if (query.isNotBlank() && hits.isEmpty()) {
+            LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(top = padding.calculateTopPadding())) {
                 item(key = "none") {
                     EmptyState(
                         icon = Icons.Outlined.SearchOff,
                         title = stringResource(R.string.no_results_title),
                         body = stringResource(R.string.no_results_body),
-                        modifier = Modifier.padding(top = 32.dp).animateItem(),
+                        modifier = Modifier.padding(top = 32.dp),
                     )
                 }
             }
-            itemsIndexed(hits, key = { _, hit -> hit.note.id }) { index, hit ->
-                NoteCard(
-                    note = hit.note,
-                    preview = hit.excerpt ?: previews[hit.note.id],
-                    shape = segmentShape(index, hits.size),
-                    showFolder = true,
-                    onClick = { actions.open(hit.note) },
-                    onShare = { actions.share(hit.note) },
-                    onDelete = { actions.delete(hit.note) },
-                    modifier = Modifier.padding(horizontal = 16.dp).animateItem(),
-                )
+        } else {
+            NoteGrid(
+                state = rememberLazyStaggeredGridState(),
+                inGrid = inGrid,
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = padding.calculateTopPadding() + 8.dp, bottom = 24.dp),
+                modifier = Modifier.imePadding(),
+            ) {
+                items(hits, key = { it.note.id }) { hit ->
+                    NoteCard(
+                        note = hit.note,
+                        info = infos[hit.note.id],
+                        store = viewModel.store(),
+                        inGrid = inGrid,
+                        showFolder = true,
+                        selected = false,
+                        onClick = { onOpen(hit.note.id) },
+                        onLongClick = { onOpen(hit.note.id) },
+                        excerpt = hit.excerpt,
+                        modifier = Modifier.animateItem(),
+                    )
+                }
             }
         }
     }

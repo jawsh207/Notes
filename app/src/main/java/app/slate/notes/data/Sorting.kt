@@ -1,44 +1,9 @@
 package app.slate.notes.data
 
 import java.text.Collator
-import java.time.Instant
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneId
 import java.util.Locale
 
-// How lists are ordered and grouped. Kept free of Android so it can be unit-tested.
-
-/** When a note last changed, as the lists group it under a heading when sorted by date. */
-sealed interface DateGroup {
-    /** Changed today. */
-    data object Today : DateGroup
-
-    /** Changed yesterday. */
-    data object Yesterday : DateGroup
-
-    /** Changed in the 7 days before yesterday. */
-    data object ThisWeek : DateGroup
-
-    /** Changed in the 30 days before that. */
-    data object ThisMonth : DateGroup
-
-    /** Changed longer ago, grouped by calendar month. */
-    data class Month(val month: YearMonth) : DateGroup
-}
-
-/** Which [DateGroup] a note changed at [modified] falls in, seen from [today]. */
-fun dateGroupOf(modified: Long, today: LocalDate, zone: ZoneId): DateGroup {
-    val day = Instant.ofEpochMilli(modified).atZone(zone).toLocalDate()
-    return when {
-        // A clock that's ahead on another device can stamp a file in the future; it's still new.
-        !day.isBefore(today) -> DateGroup.Today
-        day == today.minusDays(1) -> DateGroup.Yesterday
-        day.isAfter(today.minusDays(8)) -> DateGroup.ThisWeek
-        day.isAfter(today.minusDays(31)) -> DateGroup.ThisMonth
-        else -> DateGroup.Month(YearMonth.from(day))
-    }
-}
+// How lists are ordered. Kept free of Android so it can be unit-tested.
 
 /**
  * Sorts [notes] by [order]. Title order compares the way people read (ignoring case and

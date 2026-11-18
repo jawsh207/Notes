@@ -13,23 +13,34 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.automirrored.outlined.Label
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.CreateNewFolder
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
@@ -41,6 +52,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,26 +71,29 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import app.slate.notes.R
+import app.slate.notes.ui.browse.BrowseTab
 import app.slate.notes.ui.components.BottomBar
+import app.slate.notes.ui.components.FabChoice
+import app.slate.notes.ui.components.NewNoteFab
 import app.slate.notes.ui.components.SearchPill
 import app.slate.notes.ui.components.TextInputDialog
 import app.slate.notes.ui.editor.EditorScreen
-import app.slate.notes.ui.folders.FolderContents
 import app.slate.notes.ui.folders.FolderScreen
-import app.slate.notes.ui.notes.NoteActions
+import app.slate.notes.ui.notes.CollectionScreen
 import app.slate.notes.ui.notes.NotesTab
+import app.slate.notes.ui.notes.SelectedNotesBar
+import app.slate.notes.ui.notes.TrashScreen
+import app.slate.notes.ui.notes.rememberSelection
 import app.slate.notes.ui.search.SearchScreen
 import app.slate.notes.ui.settings.SettingsScreen
 import app.slate.notes.ui.setup.SetupScreen
-import app.slate.notes.util.shareNote
 import kotlinx.coroutines.launch
 
 /** The two bottom tabs, in order. Notes is home. */
 enum class Tab(@StringRes val label: Int, val icon: ImageVector, val selectedIcon: ImageVector) {
-    Notes(R.string.tab_notes, Icons.Outlined.Description, Icons.Filled.Description),
-    Folders(R.string.tab_folders, Icons.Outlined.Folder, Icons.Filled.Folder),
+    Notes(R.string.tab_notes, Icons.Outlined.Lightbulb, Icons.Filled.Lightbulb),
+    Browse(R.string.tab_browse, Icons.Outlined.Explore, Icons.Filled.Explore),
 }
 
 /**
@@ -86,7 +101,7 @@ enum class Tab(@StringRes val label: Int, val icon: ImageVector, val selectedIco
  * back stack. Screens slide and spring in from the side going forward and back out going back.
  */
 @Composable
-fun NotesApp(viewModel: NotesViewModel = viewModel()) {
+fun NotesApp(viewModel: NotesViewModel) {
     LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.setForeground(true) }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.setForeground(false) }
 
@@ -100,7 +115,7 @@ fun NotesApp(viewModel: NotesViewModel = viewModel()) {
     }
 }
 
-/** The back stack of screens, with the undo bar for deleted notes on top of them. */
+/** The back stack of screens, with the Undo bar on top of them. */
 @Composable
 private fun Screens(viewModel: NotesViewModel) {
     val context = LocalContext.current
@@ -114,30 +129,39 @@ private fun Screens(viewModel: NotesViewModel) {
         }
     }
     BackHandler(enabled = stack.size > 1, onBack = back)
+    val openNote: (String) -> Unit = { open(Screen.Note(it)) }
+    val newNote: (folder: String, list: Boolean, label: String?) -> Unit = { path, list, label ->
+        viewModel.createNote(path, list, label) { id -> open(Screen.Note(id)) }
+    }
 
-    val texts by viewModel.texts.collectAsStateWithLifecycle()
-    val actions = NoteActions(
-        open = { open(Screen.Note(it.id)) },
-        share = { shareNote(context, it.title, texts[it.id].orEmpty()) },
-        delete = viewModel::delete,
-    )
-    val newNoteIn: (String) -> Unit = { path -> viewModel.createNote(path) { id -> open(Screen.Note(id)) } }
+    // A note asked for by a reminder notification opens once the folder has been read.
+    val request by viewModel.openRequest.collectAsStateWithLifecycle()
+    val library by viewModel.library.collectAsStateWithLifecycle()
+    LaunchedEffect(request, library != null) {
+        val id = request ?: return@LaunchedEffect
+        if (library == null) return@LaunchedEffect
+        viewModel.openRequestHandled()
+        if (library?.notes?.any { it.id == id } == true) open(Screen.Note(id))
+    }
 
-    // Undo for a note just deleted, here or from the note itself.
+    // Undo for notes just trashed or archived.
     val snackbar = remember { SnackbarHostState() }
-    val deleted by viewModel.deleted.collectAsStateWithLifecycle()
-    LaunchedEffect(deleted) {
-        val gone = deleted
-        if (gone == null) {
+    val undo by viewModel.undo.collectAsStateWithLifecycle()
+    LaunchedEffect(undo) {
+        val action = undo
+        if (action == null) {
             snackbar.currentSnackbarData?.dismiss()
             return@LaunchedEffect
         }
-        val result = snackbar.showSnackbar(
-            context.getString(R.string.deleted_note, gone.note.title),
-            actionLabel = context.getString(R.string.undo),
-            duration = SnackbarDuration.Long,
-        )
-        if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete() else viewModel.forgetDeleted()
+        val message = when (action.kind) {
+            UndoKind.Trashed -> action.title?.let { context.getString(R.string.trashed_one, it) }
+                ?: context.resources.getQuantityString(R.plurals.trashed_many, action.count, action.count)
+            UndoKind.Archived -> context.resources.getQuantityString(R.plurals.archived_many, action.count, action.count)
+            UndoKind.Unarchived -> context.resources.getQuantityString(R.plurals.unarchived_many, action.count, action.count)
+        }
+        val result = snackbar.showSnackbar(message, actionLabel = context.getString(R.string.undo), duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) action.undo()
+        viewModel.undoShown()
     }
 
     val motion = MaterialTheme.motionScheme
@@ -145,7 +169,7 @@ private fun Screens(viewModel: NotesViewModel) {
         AnimatedContent(
             targetState = stack.last() to stack.size,
             // A renamed note gets a new id; that's the same screen, so it mustn't animate.
-            contentKey = { (screen, _) -> if (screen is Screen.Note) "note" else screen },
+            contentKey = { (screen, depth) -> if (screen is Screen.Note) "note:$depth" else screen },
             transitionSpec = {
                 val forward = targetState.second >= initialState.second
                 val slide = motion.defaultSpatialSpec<IntOffset>()
@@ -164,13 +188,43 @@ private fun Screens(viewModel: NotesViewModel) {
             label = "screens",
         ) { (screen, _) ->
             when (screen) {
-                Screen.Home -> Home(viewModel, tab, onTabChange = { tab = it }, open = open, actions = actions, newNoteIn = newNoteIn)
-                Screen.Search -> SearchScreen(viewModel, actions, onBack = back)
+                Screen.Home -> Home(viewModel, tab, onTabChange = { tab = it }, open = open, newNote = newNote)
+                Screen.Search -> SearchScreen(viewModel, onOpen = openNote, onBack = back)
                 Screen.Settings -> SettingsScreen(viewModel, onBack = back)
+                Screen.Trash -> TrashScreen(viewModel, onBack = back)
+                Screen.Archive -> CollectionScreen(
+                    viewModel,
+                    title = stringResource(R.string.archive),
+                    filter = { _, info -> info?.meta?.archived == true },
+                    emptyIcon = Icons.Outlined.Archive,
+                    emptyTitle = stringResource(R.string.archive_empty_title),
+                    emptyBody = stringResource(R.string.archive_empty_body),
+                    onOpen = openNote,
+                    onBack = back,
+                    pinSections = false,
+                )
+                Screen.Reminders -> CollectionScreen(
+                    viewModel,
+                    title = stringResource(R.string.reminders),
+                    filter = { _, info -> info?.meta?.reminder != null },
+                    emptyIcon = Icons.Outlined.Alarm,
+                    emptyTitle = stringResource(R.string.reminders_empty_title),
+                    emptyBody = stringResource(R.string.reminders_empty_body),
+                    onOpen = openNote,
+                    onBack = back,
+                    sort = { notes ->
+                        val infos = viewModel.infos.value
+                        notes.sortedBy { infos[it.id]?.meta?.reminder }
+                    },
+                )
+                is Screen.Label -> LabelScreen(viewModel, screen.name, openNote, newNote, back) { renamed ->
+                    stack[stack.lastIndex] = Screen.Label(renamed)
+                }
                 is Screen.Folder -> FolderScreen(
-                    viewModel, screen.path, actions,
-                    onOpenFolder = { open(Screen.Folder(it.path)) },
-                    onNewNote = { newNoteIn(screen.path) },
+                    viewModel, screen.path,
+                    onOpen = openNote,
+                    onOpenFolder = { open(Screen.Folder(it)) },
+                    onNew = { list -> newNote(screen.path, list, null) },
                     onBack = back,
                 )
                 is Screen.Note -> EditorScreen(
@@ -180,7 +234,8 @@ private fun Screens(viewModel: NotesViewModel) {
                         val at = stack.indexOfLast { it is Screen.Note }
                         if (at >= 0) stack[at] = Screen.Note(newId)
                     },
-                    onDeleted = { if (stack.size > 1) stack.removeAt(stack.lastIndex) },
+                    onClosed = { if (stack.size > 1) stack.removeAt(stack.lastIndex) },
+                    onOpen = openNote,
                 )
             }
         }
@@ -192,10 +247,82 @@ private fun Screens(viewModel: NotesViewModel) {
     }
 }
 
+/** A label's page: its notes, a + that makes notes with the label, and a menu to rename or delete the label. */
+@Composable
+private fun LabelScreen(
+    viewModel: NotesViewModel,
+    label: String,
+    onOpen: (String) -> Unit,
+    newNote: (String, Boolean, String?) -> Unit,
+    onBack: () -> Unit,
+    onRenamed: (String) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    CollectionScreen(
+        viewModel,
+        title = label,
+        filter = { _, info -> info?.meta?.tags?.any { it.equals(label, ignoreCase = true) } == true },
+        emptyIcon = Icons.AutoMirrored.Outlined.Label,
+        emptyTitle = stringResource(R.string.label_empty_title),
+        emptyBody = stringResource(R.string.label_empty_body),
+        onOpen = onOpen,
+        onBack = onBack,
+        actions = {
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.more_options)) }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.rename_label)) },
+                        leadingIcon = { Icon(Icons.Outlined.Edit, null) },
+                        onClick = { menu = false; renaming = true },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete_label)) },
+                        leadingIcon = { Icon(Icons.Outlined.Delete, null) },
+                        onClick = { menu = false; deleting = true },
+                    )
+                }
+            }
+        },
+        fab = { NewNoteFab(onNote = { newNote("", false, label) }, onList = { newNote("", true, label) }) },
+    )
+    if (renaming) {
+        TextInputDialog(
+            title = stringResource(R.string.rename_label),
+            initial = label,
+            confirmLabel = stringResource(R.string.save),
+            onConfirm = { name ->
+                renaming = false
+                viewModel.renameLabel(label, name)
+                onRenamed(app.slate.notes.data.cleanLabel(name))
+            },
+            onDismiss = { renaming = false },
+        )
+    }
+    if (deleting) {
+        AlertDialog(
+            onDismissRequest = { deleting = false },
+            title = { Text(stringResource(R.string.delete_label_title, label)) },
+            text = { Text(stringResource(R.string.delete_label_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleting = false
+                    viewModel.deleteLabel(label)
+                    onBack()
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = { TextButton(onClick = { deleting = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
 /**
  * The bottom tabs, as swipeable pages (as in Contacts and Dialtone): swipe between them or tap
- * the bottom bar. Back from Folders returns to Notes. The button writes a new note on the Notes
- * tab and makes a folder on the Folders tab; it tucks into an icon once the list is scrolled.
+ * the bottom bar. Back from Browse returns to Notes. The + springs open into New note and New
+ * list (and New folder on Browse). Long-pressing a card picks it, and the search bar becomes a
+ * bar of actions for the picked notes.
  */
 @Composable
 private fun Home(
@@ -203,51 +330,69 @@ private fun Home(
     tab: Tab,
     onTabChange: (Tab) -> Unit,
     open: (Screen) -> Unit,
-    actions: NoteActions,
-    newNoteIn: (String) -> Unit,
+    newNote: (String, Boolean, String?) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val pager = rememberPagerState(initialPage = tab.ordinal) { Tab.entries.size }
     // targetPage, not currentPage, so the bar and button follow a swipe as soon as it's let go.
     val current = Tab.entries[pager.targetPage]
     LaunchedEffect(pager.settledPage) { onTabChange(Tab.entries[pager.settledPage]) }
-    BackHandler(enabled = current != Tab.Notes) { scope.launch { pager.animateScrollToPage(Tab.Notes.ordinal) } }
-    val notesList = rememberLazyListState()
-    val foldersList = rememberLazyListState()
-    val atTop = if (current == Tab.Notes) !notesList.canScrollBackward else !foldersList.canScrollBackward
+    val notesGrid = rememberLazyStaggeredGridState()
+    val browseList = rememberLazyListState()
+    val selection = rememberSelection()
+    val selecting = selection.active && current == Tab.Notes
+    LaunchedEffect(current) { if (current != Tab.Notes) selection.clear() }
+    BackHandler(enabled = selecting) { selection.clear() }
+    BackHandler(enabled = current != Tab.Notes && !selecting) { scope.launch { pager.animateScrollToPage(Tab.Notes.ordinal) } }
+    val inGrid by viewModel.grid.collectAsStateWithLifecycle()
+    val library by viewModel.library.collectAsStateWithLifecycle()
+    val infos by viewModel.infos.collectAsStateWithLifecycle()
     var naming by remember { mutableStateOf(false) }
 
     Scaffold(
         // Pinned above the tabs, as in Contacts: lists scroll behind it.
         topBar = {
             Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
-                SearchPill(
-                    onClick = { open(Screen.Search) },
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    trailing = {
-                        IconButton(onClick = { open(Screen.Settings) }) {
-                            Icon(Icons.Rounded.Settings, stringResource(R.string.settings))
-                        }
-                    },
-                )
+                AnimatedContent(targetState = selecting, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "bar") { picking ->
+                    if (picking) {
+                        val visible = library?.notes.orEmpty().filter { infos[it.id]?.meta?.archived != true }
+                        SelectedNotesBar(viewModel, selection, visible, onOpen = { open(Screen.Note(it)) })
+                    } else {
+                        SearchPill(
+                            onClick = { open(Screen.Search) },
+                            Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            trailing = {
+                                Row {
+                                    IconButton(onClick = { viewModel.setGrid(!inGrid) }) {
+                                        AnimatedContent(targetState = inGrid, label = "layout") { grid ->
+                                            Icon(
+                                                if (grid) Icons.Outlined.ViewAgenda else Icons.Outlined.GridView,
+                                                stringResource(if (grid) R.string.list_view else R.string.grid_view),
+                                            )
+                                        }
+                                    }
+                                    IconButton(onClick = { open(Screen.Settings) }) {
+                                        Icon(Icons.Rounded.Settings, stringResource(R.string.settings))
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
             }
         },
         floatingActionButton = {
-            val notesTab = current == Tab.Notes
-            ExtendedFloatingActionButton(
-                onClick = { if (notesTab) newNoteIn("") else naming = true },
-                expanded = atTop,
-                icon = {
-                    AnimatedContent(targetState = notesTab, label = "fabIcon") { isNotes ->
-                        Icon(if (isNotes) Icons.Rounded.Edit else Icons.Outlined.CreateNewFolder, null)
-                    }
-                },
-                text = {
-                    AnimatedContent(targetState = notesTab, label = "fabText") { isNotes ->
-                        Text(stringResource(if (isNotes) R.string.new_note else R.string.new_folder))
-                    }
-                },
-            )
+            if (!selecting) {
+                NewNoteFab(
+                    onNote = { newNote("", false, null) },
+                    onList = { newNote("", true, null) },
+                    extra = if (current == Tab.Browse) {
+                        listOf(FabChoice(stringResource(R.string.new_folder), Icons.Outlined.CreateNewFolder) { naming = true })
+                    } else {
+                        emptyList()
+                    },
+                )
+            }
         },
         bottomBar = {
             BottomBar {
@@ -263,13 +408,14 @@ private fun Home(
             }
         },
     ) { padding ->
-        HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), key = { Tab.entries[it] }) { page ->
+        HorizontalPager(
+            state = pager, modifier = Modifier.fillMaxSize(), key = { Tab.entries[it] },
+            // No swiping away from a selection.
+            userScrollEnabled = !selecting,
+        ) { page ->
             when (Tab.entries[page]) {
-                Tab.Notes -> NotesTab(viewModel, padding, notesList, actions)
-                Tab.Folders -> FolderContents(
-                    viewModel, path = "", contentPadding = padding, listState = foldersList, actions = actions,
-                    onOpenFolder = { open(Screen.Folder(it.path)) },
-                )
+                Tab.Notes -> NotesTab(viewModel, padding, notesGrid, selection, onOpen = { open(Screen.Note(it)) })
+                Tab.Browse -> BrowseTab(viewModel, padding, browseList, open)
             }
         }
     }

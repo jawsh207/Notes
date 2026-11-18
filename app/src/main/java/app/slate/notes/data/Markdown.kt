@@ -27,6 +27,9 @@ sealed interface Block {
 
     /** A "---" line across the page. */
     data class Rule(override val line: Int) : Block
+
+    /** A line that's only a picture: "![description](attachments/photo.jpg)". */
+    data class Image(val image: ImageRef, override val line: Int) : Block
 }
 
 /** What starts a list entry. */
@@ -115,7 +118,8 @@ fun parseBlocks(source: String): List<Block> {
             i++
             continue
         }
-        val block: Block? = HEADING.matchEntire(line)?.let { Block.Heading(it.groupValues[1].length, it.groupValues[2], i) }
+        val block: Block? = imageOf(line)?.let { Block.Image(it, i) }
+            ?: HEADING.matchEntire(line)?.let { Block.Heading(it.groupValues[1].length, it.groupValues[2], i) }
             ?: RULE.matchEntire(line)?.let { Block.Rule(i) }
             ?: TASK.matchEntire(line)?.let {
                 Block.Item(Marker.Task(it.groupValues[2] != " "), it.groupValues[3], depthOf(it.groupValues[1]), i)
@@ -290,7 +294,7 @@ fun previewOf(source: String, title: String, maxLength: Int = 200): String {
             }
             is Block.Quote -> block.text
             is Block.Code -> block.text
-            is Block.Rule -> null
+            is Block.Rule, is Block.Image -> null
         } ?: continue
         val plain = raw.split('\n').joinToString(" ") { parseInline(it).text.trim() }.trim()
         if (plain.isEmpty()) continue

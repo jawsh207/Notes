@@ -40,6 +40,10 @@ data class Library(
     val rootId: String,
     val notes: List<Note>,
     val folders: List<Folder>,
+    /** Notes in the trash (the hidden ".trash" folder at the top, as Obsidian uses). */
+    val trash: List<Note> = emptyList(),
+    /** The trash folder's document id, once it exists. */
+    val trashId: String? = null,
 ) {
     /** The document id of the folder at [path] ("" is the notes folder itself). */
     fun folderId(path: String): String? = if (path.isEmpty()) rootId else folders.firstOrNull { it.path == path }?.id

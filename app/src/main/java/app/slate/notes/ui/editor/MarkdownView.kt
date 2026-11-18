@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -42,17 +43,26 @@ import androidx.compose.ui.unit.dp
 import app.slate.notes.data.Block
 import app.slate.notes.data.InlineText
 import app.slate.notes.data.Marker
+import app.slate.notes.data.NoteStore
 import app.slate.notes.data.parseBlocks
 import app.slate.notes.data.parseInline
+import app.slate.notes.ui.components.NoteImage
 import app.slate.notes.util.openLink
 import app.slate.notes.data.SpanStyle as MarkStyle
 
 /**
- * A note drawn formatted: headings, lists, checkboxes, quotes, code and links. Ticking a
- * checkbox calls [onToggleTask] with its line, so the tick is written into the file itself.
+ * A note drawn formatted: headings, lists, checkboxes, quotes, code, links and pictures (found
+ * through [store], relative to the note's folder [noteFolder]). Ticking a checkbox calls
+ * [onToggleTask] with its line, so the tick is written into the file itself.
  */
 @Composable
-fun MarkdownView(source: String, onToggleTask: (line: Int) -> Unit, modifier: Modifier = Modifier) {
+fun MarkdownView(
+    source: String,
+    onToggleTask: (line: Int) -> Unit,
+    store: NoteStore?,
+    noteFolder: String,
+    modifier: Modifier = Modifier,
+) {
     val blocks = remember(source) { parseBlocks(source) }
     val typography = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
@@ -89,6 +99,7 @@ fun MarkdownView(source: String, onToggleTask: (line: Int) -> Unit, modifier: Mo
                     )
                 }
                 is Block.Rule -> HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                is Block.Image -> NoteImage(store, noteFolder, block.image.path, Modifier.clip(RoundedCornerShape(16.dp)))
             }
         }
     }

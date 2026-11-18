@@ -1,0 +1,66 @@
+package app.slate.notes.ui.components
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.FloatingActionButtonMenu
+import androidx.compose.material3.FloatingActionButtonMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import app.slate.notes.R
+
+/** An extra choice in the [NewNoteFab] menu, such as New folder. */
+class FabChoice(val label: String, val icon: ImageVector, val onClick: () -> Unit)
+
+/**
+ * The + button, as Material 3 Expressive's floating menu: tapping it springs open a stack of
+ * choices (a note, a checklist, and any [extra] ones) while the + turns into a ×.
+ */
+@Composable
+fun NewNoteFab(onNote: () -> Unit, onList: () -> Unit, extra: List<FabChoice> = emptyList()) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = open) { open = false }
+    FloatingActionButtonMenu(
+        expanded = open,
+        button = {
+            ToggleFloatingActionButton(checked = open, onCheckedChange = { open = it }) {
+                // A quarter turn as it opens: + becomes ×.
+                Icon(
+                    Icons.Rounded.Add,
+                    stringResource(if (open) R.string.close_menu else R.string.new_note),
+                    Modifier.graphicsLayer { rotationZ = checkedProgress * 45f },
+                )
+            }
+        },
+    ) {
+        FloatingActionButtonMenuItem(
+            onClick = { open = false; onList() },
+            text = { Text(stringResource(R.string.new_list)) },
+            icon = { Icon(Icons.Outlined.CheckBox, null) },
+        )
+        FloatingActionButtonMenuItem(
+            onClick = { open = false; onNote() },
+            text = { Text(stringResource(R.string.new_note)) },
+            icon = { Icon(Icons.Outlined.EditNote, null) },
+        )
+        extra.forEach { choice ->
+            FloatingActionButtonMenuItem(
+                onClick = { open = false; choice.onClick() },
+                text = { Text(choice.label) },
+                icon = { Icon(choice.icon, null) },
+            )
+        }
+    }
+}

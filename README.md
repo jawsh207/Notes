@@ -9,31 +9,72 @@ app reads and writes plain Markdown (`.md`) files in a folder on your phone that
 - **Live updates.** When a note changes on another device and syncs into the folder, or another
   app edits it, the app picks it up by itself, including the note you're looking at. If you were
   typing in it at the time, it asks which version to keep instead of overwriting either.
+- **Google Keep's features.** Checklists, pinned notes, colours, labels, archive, trash,
+  reminders and pictures, kept inside the files themselves.
 - **Modern look.** Jetpack Compose and Material 3 Expressive: wallpaper colours, Google Sans
-  Flex, grouped cards, spring animations. It shares its look with
+  Flex, a grid of cards, spring animations. It shares its look with
   [Contacts](https://github.com/jawsh207/Contacts) and [Dialtone](https://github.com/jawsh207/dialtone).
 
 ## Using it
 
 On first launch, pick (or create) a folder with the system folder picker. The app asks for no
-permissions: the picker gives it access to that folder and nothing else.
+storage permission: the picker gives it access to that folder and nothing else. It asks to show
+notifications the first time you set a reminder.
 
-- **Notes tab:** every note in the folder and its sub-folders, newest first (or A–Z, in
-  Settings). Pull down to look at the folder again right away.
-- **Folders tab:** the folder's sub-folders and the notes at its top level. Sub-folders open into
-  their own page, where new notes and folders are made inside them.
+It works like Google Keep:
+
+- **Notes tab:** every note that isn't archived, from the folder and its sub-folders, as a grid
+  of cards (or a list; the button by the search bar switches). Pinned notes sit at the top. Pull
+  down to look at the folder again right away.
+- **Browse tab:** Reminders, Archive and Trash, every label, and your folders. A folder's page
+  shows its sub-folders and notes, and new notes made there are saved in it.
+- **New note or list:** the + button opens into New note and New list (and New folder on Browse).
 - **Writing:** a note saves itself a moment after you stop typing, and when you leave it or
   switch apps. The title is the file name; changing it renames the file. A new note left
   without a title is named after its first line; one left completely empty is removed.
-- **Formatted view:** the eye button shows headings, lists, checkboxes, quotes, code and links.
-  Ticking a checkbox there writes the tick into the file (`- [ ]` becomes `- [x]`).
-- **Search:** finds notes containing every word typed, in the title or text, ignoring case and
-  accents.
-- Long-press a note in any list to share or delete it. Deleting offers Undo.
+- **Checklists:** tick boxes, Enter for a new item, backspace in an empty item to remove it, and
+  indent buttons. Ticked items fold away at the bottom (this can be turned off in Settings).
+  "Show tick boxes" turns any note into a checklist and "Hide tick boxes" back.
+- **Pin, colour, labels, archive, reminders:** from the note's top and bottom bars, or for several
+  notes at once after a long press on a card.
+- **Pictures:** Add image copies a picture into an `attachments` folder next to the note and puts
+  it at the top of the note. A long press on it takes it out of the note.
+- **Formatted view:** the eye button shows headings, lists, checkboxes, quotes, code, pictures and
+  links. Ticking a checkbox there writes the tick into the file (`- [ ]` becomes `- [x]`).
+- **Search:** finds notes containing every word typed, in the title, text or labels, ignoring case
+  and accents.
+- **Trash:** deleting moves a note to a hidden `.trash` folder (the one Obsidian uses), with Undo.
+  The Trash page puts notes back or deletes them for good; notes deleted on this phone are
+  removed after 7 days.
 
-Files ending in `.md` or `.markdown` count as notes. Hidden folders (names starting with a dot,
-such as `.git`, `.obsidian` or `.stfolder`) are skipped. Notes are read and written as UTF-8,
-exactly as typed; the app never reformats a file.
+### What's in the files
+
+Files ending in `.md` or `.markdown` count as notes, read and written as UTF-8. Hidden folders
+(names starting with a dot, such as `.git`, `.obsidian` or `.stfolder`) are skipped. A checklist
+is a note whose lines are all Markdown tasks (`- [ ] milk`). Pins, colours, labels, archiving
+and reminders are kept in the YAML front matter at the top of the file, which Obsidian and
+other Markdown tools understand:
+
+```markdown
+---
+pinned: true
+color: yellow
+tags: [shopping, home]
+reminder: 2026-11-20T18:00
+---
+![](attachments/image-20261118-031200.jpg)
+
+- [ ] milk
+- [x] eggs
+```
+
+The app only changes those keys and leaves anything else in the front matter as it was. A note
+with none of them has no front matter added.
+
+Reminders ring through Android alarms, which the app sets whenever it reads the folder, so a
+reminder added on another device rings once the app has seen it. They're on the minute when
+Android lets the app use exact alarms (Settings → Apps → Special app access → Alarms &
+reminders); otherwise Android may hold them for a few minutes.
 
 Changes are noticed straight away on the phone's own storage, which reports them. Other storage
 providers may not, so the app also looks at the folder every few seconds while it's on screen,

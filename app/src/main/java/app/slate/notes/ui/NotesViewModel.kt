@@ -3,16 +3,29 @@ package app.slate.notes.ui
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import android.webkit.MimeTypeMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.slate.notes.data.Library
 import app.slate.notes.data.Note
+import app.slate.notes.data.NoteInfo
+import app.slate.notes.data.NoteMeta
 import app.slate.notes.data.NoteStore
+import app.slate.notes.data.ScheduledReminder
 import app.slate.notes.data.Settings
 import app.slate.notes.data.SortOrder
+import app.slate.notes.data.TrashEntry
 import app.slate.notes.data.UNTITLED
-import app.slate.notes.data.previewOf
+import app.slate.notes.data.cleanLabel
+import app.slate.notes.data.noteInfoOf
+import app.slate.notes.data.readMeta
+import app.slate.notes.data.splitFrontMatter
+import app.slate.notes.data.trashExpired
+import app.slate.notes.data.writeMeta
+import app.slate.notes.reminders.ReminderAlarms
 import app.slate.notes.ui.editor.NoteSession
+import java.text.Collator
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
@@ -27,8 +40,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -48,8 +63,20 @@ sealed interface FolderState {
     data object Ready : FolderState
 }
 
-/** A note just deleted, kept so Undo can write it back. */
-data class Deleted(val note: Note, val text: String)
+/** What an Undo bar is offering to undo. */
+enum class UndoKind {
+    /** Notes moved to the trash. */
+    Trashed,
+
+    /** Notes archived. */
+    Archived,
+
+    /** Notes taken out of the archive. */
+    Unarchived,
+}
+
+/** Something just done that the Undo bar offers to take back. [title] is set when it was one note. */
+class UndoAction(val kind: UndoKind, val count: Int, val title: String?, val undo: () -> Unit)
 
 /**
  * The app's state: the notes folder, what's in it, and the open note.
@@ -57,7 +84,8 @@ data class Deleted(val note: Note, val text: String)
  * The folder is looked at again whenever the phone says something in it changed, and every few
  * seconds while the app is on screen (not every storage provider says), so notes edited on
  * another device and synced into the folder show up by themselves. Texts are read once and then
- * again only when a file's date or size changes.
+ * again only when a file's date or size changes; what the lists need from each (pin, colour,
+ * labels, preview, checklist, picture) is worked out then.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotesViewModel(application: Application) : AndroidViewModel(application) {
@@ -76,15 +104,16 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     /** Everything in the notes folder; null until the first look. */
     val library: StateFlow<Library?> = _library.asStateFlow()
 
-    private val _texts = MutableStateFlow<Map<String, String>>(emptyMap())
+    private val _infos = MutableStateFlow<Map<String, NoteInfo>>(emptyMap())
 
-    /** Each note's text, by id, for search. Fills in shortly after the list appears. */
-    val texts: StateFlow<Map<String, String>> = _texts.asStateFlow()
+    /** What each note's text says, by note id. Fills in shortly after the list appears. */
+    val infos: StateFlow<Map<String, NoteInfo>> = _infos.asStateFlow()
 
-    private val _previews = MutableStateFlow<Map<String, String>>(emptyMap())
-
-    /** Each note's preview line for the lists, by id. */
-    val previews: StateFlow<Map<String, String>> = _previews.asStateFlow()
+    /** Every label used by any note, A to Z. */
+    val labels: StateFlow<List<String>> = _infos.map { infos ->
+        val collator = Collator.getInstance().apply { strength = Collator.SECONDARY }
+        infos.values.flatMap { it.meta.tags }.distinctBy { it.lowercase() }.sortedWith(collator)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** How lists are sorted. */
     val sortOrder: StateFlow<SortOrder> = settings.sortOrder.stateIn(viewModelScope, SharingStarted.Eagerly, SortOrder.Modified)
@@ -95,25 +124,36 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     /** The editor uses a fixed-width font. */
     val monospace: StateFlow<Boolean> = settings.monospace.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** Notes show as a grid of cards. */
+    val grid: StateFlow<Boolean> = settings.grid.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    /** Ticked checklist items go to the bottom. */
+    val tickedToBottom: StateFlow<Boolean> = settings.tickedToBottom.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     private val _refreshing = MutableStateFlow(false)
 
     /** A look at the folder asked for by pulling down the list is under way. */
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
-    private val _deleted = MutableStateFlow<Deleted?>(null)
+    private val _undo = MutableStateFlow<UndoAction?>(null)
 
-    /** The note just deleted, while Undo is offered. */
-    val deleted: StateFlow<Deleted?> = _deleted.asStateFlow()
+    /** What the Undo bar is offering, if anything. */
+    val undo: StateFlow<UndoAction?> = _undo.asStateFlow()
 
     private val _session = MutableStateFlow<NoteSession?>(null)
 
     /** The note open in the editor, if any. */
     val session: StateFlow<NoteSession?> = _session.asStateFlow()
 
+    private val _openRequest = MutableStateFlow<String?>(null)
+
+    /** A note to open that was asked for from outside the app (a reminder notification), by id. */
+    val openRequest: StateFlow<String?> = _openRequest.asStateFlow()
+
     private var store: NoteStore? = null
     private val foreground = MutableStateFlow(false)
     private val pokes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    // What each cached text was read from, so unchanged files aren't read again.
+    // What each note's info was worked out from, so unchanged files aren't read again.
     private val readStamps = HashMap<String, Pair<Long, Long>>()
     // One look at the folder at a time: a pull to refresh can land during a scheduled one.
     private val scanLock = Mutex()
@@ -123,8 +163,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             settings.folder.distinctUntilChanged().collectLatest { uri ->
                 store = null
                 _library.value = null
-                _texts.value = emptyMap()
-                _previews.value = emptyMap()
+                _infos.value = emptyMap()
                 readStamps.clear()
                 if (uri == null) {
                     _folder.value = FolderState.Needed(lost = false)
@@ -153,7 +192,10 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
      */
     private suspend fun watch(opened: NoteStore) = coroutineScope {
         val watched = MutableStateFlow(listOf(opened.rootId))
-        if (rescan(opened)) _library.value?.let { library -> watched.value = listOf(library.rootId) + library.folders.map { it.id } }
+        fun watchAll() {
+            _library.value?.let { library -> watched.value = listOf(library.rootId) + library.folders.map { it.id } }
+        }
+        if (rescan(opened)) watchAll()
         launch {
             merge(
                 pokes,
@@ -161,7 +203,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 foreground.flatMapLatest { if (it) ticks(SCAN_EVERY_MS) else emptyFlow() },
             ).conflate().collect {
                 if (!rescan(opened)) return@collect
-                _library.value?.let { library -> watched.value = listOf(library.rootId) + library.folders.map { it.id } }
+                watchAll()
                 _session.value?.checkDisk()
             }
         }
@@ -191,36 +233,58 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             return@withLock true
         }
         if (scanned != _library.value) _library.value = scanned
-        readTexts(opened, scanned)
+        readInfos(opened, scanned)
+        emptyOldTrash(opened, scanned)
+        syncReminders()
         true
     }
 
-    /** Reads the text of every note that's new or changed since it was last read. */
-    private suspend fun readTexts(opened: NoteStore, library: Library) {
-        val ids = library.notes.mapTo(HashSet()) { it.id }
-        val stale = library.notes.filter { readStamps[it.id] != (it.modified to it.size) }
+    /** Reads the text of every note (trash included) that's new or changed since it was last read. */
+    private suspend fun readInfos(opened: NoteStore, library: Library) {
+        val all = library.notes + library.trash
+        val ids = all.mapTo(HashSet()) { it.id }
+        val stale = all.filter { readStamps[it.id] != (it.modified to it.size) }
         val gone = readStamps.keys.filter { it !in ids }
         if (stale.isEmpty() && gone.isEmpty()) return
         gone.forEach { readStamps.remove(it) }
-        val texts = _texts.value.filterKeys { it in ids }.toMutableMap()
-        val previews = _previews.value.filterKeys { it in ids }.toMutableMap()
-        // Shown in batches, so a big folder's first previews appear without waiting for the rest.
+        val infos = _infos.value.filterKeys { it in ids }.toMutableMap()
+        // Shown in batches, so a big folder's first cards fill in without waiting for the rest.
         stale.chunked(READ_BATCH).forEach { batch ->
             withContext(Dispatchers.IO) {
                 for (note in batch) {
                     val text = runCatching { opened.read(note.id) }.getOrNull() ?: continue
-                    texts[note.id] = text
-                    previews[note.id] = previewOf(text, note.title)
+                    infos[note.id] = noteInfoOf(text, note.title)
                     readStamps[note.id] = note.modified to note.size
                 }
             }
-            _texts.value = texts.toMap()
-            _previews.value = previews.toMap()
+            _infos.value = infos.toMap()
         }
-        if (stale.isEmpty()) {
-            _texts.value = texts.toMap()
-            _previews.value = previews.toMap()
+        if (stale.isEmpty()) _infos.value = infos.toMap()
+    }
+
+    /** Deletes notes this phone put in the trash more than a week ago, as Google Keep does. */
+    private suspend fun emptyOldTrash(opened: NoteStore, library: Library) {
+        val now = System.currentTimeMillis()
+        val log = settings.trashLog.first()
+        val expired = log.filter { trashExpired(it.trashedAt, now) }
+        if (expired.isEmpty()) return
+        val names = expired.mapTo(HashSet()) { it.name }
+        withContext(Dispatchers.IO) {
+            library.trash.filter { it.name in names }.forEach { runCatching { opened.delete(it.id) } }
         }
+        settings.editTrashLog { entries -> entries.filter { it !in expired } }
+    }
+
+    /** Sets an alarm for every future reminder in the notes, and cancels alarms no note asks for any more. */
+    private suspend fun syncReminders() {
+        val library = _library.value ?: return
+        val infos = _infos.value
+        val zone = ZoneId.systemDefault()
+        val wanted = library.notes.mapNotNull { note ->
+            val reminder = infos[note.id]?.meta?.reminder ?: return@mapNotNull null
+            ScheduledReminder(note.id, reminder.atZone(zone).toInstant().toEpochMilli(), note.title)
+        }
+        ReminderAlarms.sync(app, wanted)
     }
 
     /** Tells the view model whether the app is on screen, which is when it checks for changes. */
@@ -264,14 +328,31 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Makes a new, empty note in the folder at [folderPath] and opens it. Calls [onMade] with its id. */
-    fun createNote(folderPath: String, onMade: (String) -> Unit) {
+    /** Asks for the note [id] to be opened once the folder has been read (from a reminder notification). */
+    fun requestOpen(id: String) {
+        _openRequest.value = id
+    }
+
+    /** Marks the open request as handled. */
+    fun openRequestHandled() {
+        _openRequest.value = null
+    }
+
+    /**
+     * Makes a new note in the folder at [folderPath] and opens it: an empty note, or with [list]
+     * a checklist with one empty item. [label] is given to it when made from a label's page.
+     * Calls [onMade] with its id.
+     */
+    fun createNote(folderPath: String, list: Boolean = false, label: String? = null, onMade: (String) -> Unit) {
         val opened = store ?: return
         val parentId = _library.value?.folderId(folderPath) ?: opened.rootId
+        val front = label?.let { writeMeta("", NoteMeta(tags = listOf(it))) }.orEmpty()
+        val text = front + if (list) "- [ ] \n" else ""
         viewModelScope.launch {
-            val note = runCatching { withContext(Dispatchers.IO) { opened.create(parentId, folderPath, UNTITLED) } }.getOrNull()
+            val note = runCatching { withContext(Dispatchers.IO) { opened.create(parentId, folderPath, UNTITLED, text) } }.getOrNull()
                 ?: return@launch
             _library.value = _library.value?.let { it.copy(notes = it.notes + note) }
+            _infos.value = _infos.value + (note.id to noteInfoOf(text, note.title))
             closeSession()
             _session.value = NoteSession(opened, note, viewModelScope, isNew = true, onSaved = ::onSaved)
             onMade(note.id)
@@ -321,48 +402,187 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     /** Shows a just-saved note's new text in the lists straight away. */
     private fun onSaved(note: Note, text: String) {
         val library = _library.value ?: return
-        val others = library.notes.filter { it.id != note.id && it.id != _session.value?.openedAs }
+        val opened = _session.value?.openedAs
+        val others = library.notes.filter { it.id != note.id && it.id != opened }
         _library.value = library.copy(notes = others + note)
-        _texts.value = _texts.value + (note.id to text)
-        _previews.value = _previews.value + (note.id to previewOf(text, note.title))
+        _infos.value = _infos.value + (note.id to noteInfoOf(text, note.title))
         readStamps[note.id] = note.modified to note.size
+        viewModelScope.launch { syncReminders() }
     }
 
-    /** Deletes [note], keeping its text for a while so Undo can bring it back. */
-    fun delete(note: Note) {
+    /**
+     * Changes the front matter of [notes] (pin, colour, labels, archive, reminder). The open note
+     * goes through its session so its unsaved typing isn't lost; others are read, changed and
+     * written straight away.
+     */
+    fun updateMeta(notes: List<Note>, change: (NoteMeta) -> NoteMeta) {
+        val opened = store ?: return
+        viewModelScope.launch {
+            for (note in notes) {
+                val session = _session.value
+                if (session != null && (session.note.id == note.id || session.openedAs == note.id)) {
+                    session.updateMeta(change)
+                    continue
+                }
+                val written = runCatching {
+                    withContext(Dispatchers.IO) {
+                        val text = opened.read(note.id)
+                        val parts = splitFrontMatter(text)
+                        val updated = writeMeta(parts.front, change(readMeta(parts.front))) + parts.body
+                        if (updated != text) opened.write(note.id, updated)
+                        updated to (opened.modified(note.id) ?: note.modified)
+                    }
+                }.getOrNull() ?: continue
+                onSaved(note.copy(modified = written.second, size = written.first.toByteArray().size.toLong()), written.first)
+            }
+            poke()
+        }
+    }
+
+    /** Pins or unpins [notes]. */
+    fun setPinned(notes: List<Note>, pinned: Boolean) = updateMeta(notes) { it.copy(pinned = pinned) }
+
+    /** Archives [notes] (or brings them back), offering Undo. Pinned notes lose their pin when archived, as in Keep. */
+    fun setArchived(notes: List<Note>, archived: Boolean) {
+        updateMeta(notes) { it.copy(archived = archived, pinned = if (archived) false else it.pinned) }
+        val kind = if (archived) UndoKind.Archived else UndoKind.Unarchived
+        _undo.value = UndoAction(kind, notes.size, notes.singleOrNull()?.title) {
+            // The ids may have changed if a note was renamed meanwhile; match by what's in the list now.
+            val ids = notes.mapTo(HashSet()) { it.id }
+            updateMeta(_library.value?.notes.orEmpty().filter { it.id in ids }) { it.copy(archived = !archived) }
+        }
+    }
+
+    /** Adds the label [label] to all of [notes], or with [add] false takes it off them. */
+    fun setLabel(notes: List<Note>, label: String, add: Boolean) {
+        val clean = cleanLabel(label)
+        if (clean.isEmpty()) return
+        updateMeta(notes) { meta ->
+            val without = meta.tags.filterNot { it.equals(clean, ignoreCase = true) }
+            meta.copy(tags = if (add) without + clean else without)
+        }
+    }
+
+    /** Renames a label on every note that has it. */
+    fun renameLabel(old: String, new: String) {
+        val clean = cleanLabel(new)
+        if (clean.isEmpty()) return
+        updateMeta(notesWithLabel(old)) { meta ->
+            meta.copy(tags = meta.tags.map { if (it.equals(old, ignoreCase = true)) clean else it }.distinctBy { it.lowercase() })
+        }
+    }
+
+    /** Takes a label off every note that has it. The notes themselves stay. */
+    fun deleteLabel(label: String) {
+        updateMeta(notesWithLabel(label)) { meta -> meta.copy(tags = meta.tags.filterNot { it.equals(label, ignoreCase = true) }) }
+    }
+
+    private fun notesWithLabel(label: String): List<Note> =
+        _library.value?.notes.orEmpty().filter { note -> _infos.value[note.id]?.meta?.tags?.any { it.equals(label, ignoreCase = true) } == true }
+
+    /** Moves [notes] to the trash, offering Undo. A note that's open is closed first (without its empty-note clean-up). */
+    fun trash(notes: List<Note>) {
         val opened = store ?: return
         viewModelScope.launch {
             val session = _session.value
-            if (session != null && session.note.id == note.id) {
+            if (session != null && notes.any { it.id == session.note.id || it.id == session.openedAs }) {
                 _session.value = null
                 session.save()
             }
-            val text = runCatching { withContext(Dispatchers.IO) { opened.read(note.id) } }.getOrNull()
-                ?: _texts.value[note.id].orEmpty()
-            val removed = runCatching { withContext(Dispatchers.IO) { opened.delete(note.id) } }.getOrDefault(false)
-            if (!removed) return@launch
-            _library.value = _library.value?.let { library -> library.copy(notes = library.notes.filter { it.id != note.id }) }
-            _deleted.value = Deleted(note, text)
-            poke()
-        }
-    }
-
-    /** Writes the last deleted note back, under the same name in the same folder. */
-    fun undoDelete() {
-        val opened = store ?: return
-        val deleted = _deleted.value ?: return
-        _deleted.value = null
-        viewModelScope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) { opened.create(deleted.note.parentId, deleted.note.folder, deleted.note.title, deleted.text) }
+            val now = System.currentTimeMillis()
+            val moved = mutableListOf<Pair<Note, Note>>()
+            for (note in notes) {
+                val current = if (session != null && note.id == session.openedAs) session.note else note
+                val inTrash = runCatching { withContext(Dispatchers.IO) { opened.trash(current) } }.getOrNull() ?: continue
+                moved += current to inTrash
             }
+            if (moved.isEmpty()) return@launch
+            settings.editTrashLog { log ->
+                val names = moved.mapTo(HashSet()) { it.second.name }
+                log.filter { it.name !in names } + moved.map { (from, to) -> TrashEntry(to.name, from.folder, now) }
+            }
+            val movedIds = moved.mapTo(HashSet()) { it.first.id }
+            _library.value = _library.value?.let { library ->
+                library.copy(notes = library.notes.filter { it.id !in movedIds }, trash = library.trash + moved.map { it.second })
+            }
+            _undo.value = UndoAction(UndoKind.Trashed, moved.size, moved.singleOrNull()?.first?.title) { restore(moved.map { it.second }) }
             poke()
         }
     }
 
-    /** Stops offering Undo for the last deletion. */
-    fun forgetDeleted() {
-        _deleted.value = null
+    /** Puts [notes] back from the trash into the folders they came from (or the top folder, if that isn't known or is gone). */
+    fun restore(notes: List<Note>) {
+        val opened = store ?: return
+        viewModelScope.launch {
+            val log = settings.trashLog.first()
+            val restored = mutableListOf<String>()
+            for (note in notes) {
+                val origin = log.firstOrNull { it.name == note.name }?.folder.orEmpty()
+                val library = _library.value
+                val targetId = library?.folderId(origin)
+                val (id, path) = if (targetId != null) targetId to origin else opened.rootId to ""
+                if (runCatching { withContext(Dispatchers.IO) { opened.move(note, id, path) } }.isSuccess) restored += note.name
+            }
+            settings.editTrashLog { entries -> entries.filter { it.name !in restored } }
+            poke()
+        }
+    }
+
+    /** Deletes [notes] from the trash for good. */
+    fun deleteForever(notes: List<Note>) {
+        val opened = store ?: return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { notes.forEach { runCatching { opened.delete(it.id) } } }
+            val names = notes.mapTo(HashSet()) { it.name }
+            settings.editTrashLog { entries -> entries.filter { it.name !in names } }
+            val ids = notes.mapTo(HashSet()) { it.id }
+            _library.value = _library.value?.let { library -> library.copy(trash = library.trash.filter { it.id !in ids }) }
+            poke()
+        }
+    }
+
+    /** Deletes everything in the trash for good. */
+    fun emptyTrash() = deleteForever(_library.value?.trash.orEmpty())
+
+    /** Makes a copy of [note] next to it (Keep's "Make a copy") and calls [onMade] with the copy's id. */
+    fun copy(note: Note, onMade: (String) -> Unit) {
+        val opened = store ?: return
+        viewModelScope.launch {
+            _session.value?.takeIf { it.note.id == note.id }?.save()
+            val made = runCatching {
+                withContext(Dispatchers.IO) { opened.create(note.parentId, note.folder, note.title, opened.read(note.id)) }
+            }.getOrNull() ?: return@launch
+            _library.value = _library.value?.let { it.copy(notes = it.notes + made) }
+            poke()
+            onMade(made.id)
+        }
+    }
+
+    /**
+     * Copies the picture at [uri] (from the photo picker or camera) into the open note's
+     * attachments folder and adds it to the top of the note.
+     */
+    fun addImage(session: NoteSession, uri: Uri) {
+        val opened = store ?: return
+        val resolver = app.contentResolver
+        viewModelScope.launch {
+            val extension = resolver.getType(uri)?.let { MimeTypeMap.getSingleton().getExtensionFromMimeType(it) } ?: "jpg"
+            val path = runCatching {
+                withContext(Dispatchers.IO) {
+                    resolver.openInputStream(uri)?.use { opened.saveImage(session.note.parentId, it, extension) }
+                }
+            }.getOrNull() ?: return@launch
+            session.addImage(path)
+            poke()
+        }
+    }
+
+    /** The open folder's storage, for drawing pictures; null until a folder is open. */
+    fun store(): NoteStore? = store
+
+    /** Dismisses the Undo bar. */
+    fun undoShown() {
+        _undo.value = null
     }
 
     /** Changes how lists are sorted. */
@@ -378,6 +598,16 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     /** Changes the editor font. */
     fun setMonospace(on: Boolean) {
         viewModelScope.launch { settings.setMonospace(on) }
+    }
+
+    /** Changes between grid and list. */
+    fun setGrid(on: Boolean) {
+        viewModelScope.launch { settings.setGrid(on) }
+    }
+
+    /** Changes whether ticked items move to the bottom. */
+    fun setTickedToBottom(on: Boolean) {
+        viewModelScope.launch { settings.setTickedToBottom(on) }
     }
 
     private companion object {

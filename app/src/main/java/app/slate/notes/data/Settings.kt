@@ -7,13 +7,14 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** How the note lists are ordered. */
 enum class SortOrder {
-    /** Most recently changed first, in Today / Yesterday / … groups. */
+    /** Most recently changed first. */
     Modified,
 
     /** A to Z by title. */
@@ -72,10 +73,53 @@ class Settings(context: Context) {
         store.edit { it[MONOSPACE] = on }
     }
 
+    /** Notes show as a two-column grid of cards rather than one card per row. */
+    val grid: Flow<Boolean> = store.data.map { it[GRID] ?: true }
+
+    /** Changes between grid and list. */
+    suspend fun setGrid(on: Boolean) {
+        store.edit { it[GRID] = on }
+    }
+
+    /** Ticked checklist items move below the others, as in Google Keep. */
+    val tickedToBottom: Flow<Boolean> = store.data.map { it[TICKED_TO_BOTTOM] ?: true }
+
+    /** Changes whether ticked items move to the bottom. */
+    suspend fun setTickedToBottom(on: Boolean) {
+        store.edit { it[TICKED_TO_BOTTOM] = on }
+    }
+
+    /**
+     * Notes this phone moved to the trash: where each came from (to put it back) and when (to
+     * empty it after a week). Notes trashed elsewhere aren't in it; they go back to the top
+     * folder and stay until the trash is emptied.
+     */
+    val trashLog: Flow<List<TrashEntry>> = store.data.map { prefs -> prefs[TRASH_LOG].orEmpty().mapNotNull(::decodeTrash) }
+
+    /** Changes the trash log. */
+    suspend fun editTrashLog(change: (List<TrashEntry>) -> List<TrashEntry>) {
+        store.edit { prefs ->
+            prefs[TRASH_LOG] = change(prefs[TRASH_LOG].orEmpty().mapNotNull(::decodeTrash)).map(::encodeTrash).toSet()
+        }
+    }
+
+    /** The reminder alarms set on this phone, so they can be set again after a restart and cancelled when removed. */
+    val scheduledReminders: Flow<List<ScheduledReminder>> =
+        store.data.map { prefs -> prefs[REMINDERS].orEmpty().mapNotNull(::decodeReminder) }
+
+    /** Records which reminder alarms are set. */
+    suspend fun setScheduledReminders(reminders: List<ScheduledReminder>) {
+        store.edit { it[REMINDERS] = reminders.map(::encodeReminder).toSet() }
+    }
+
     private companion object {
         val FOLDER = stringPreferencesKey("folder")
         val SORT = stringPreferencesKey("sort")
         val OPEN_FORMATTED = booleanPreferencesKey("open_formatted")
         val MONOSPACE = booleanPreferencesKey("monospace")
+        val GRID = booleanPreferencesKey("grid")
+        val TICKED_TO_BOTTOM = booleanPreferencesKey("ticked_to_bottom")
+        val TRASH_LOG = stringSetPreferencesKey("trash_log")
+        val REMINDERS = stringSetPreferencesKey("reminders")
     }
 }

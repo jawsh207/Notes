@@ -21,12 +21,14 @@ import kotlinx.coroutines.flow.conflate
  * thread.
  */
 class NoteStore(context: Context, private val tree: Uri) {
-    private val resolver: ContentResolver = context.contentResolver
+    /** The content resolver every call goes through; pictures are decoded through it too. */
+    val resolver: ContentResolver = context.contentResolver
 
     /** The notes folder's own document id. */
     val rootId: String = DocumentsContract.getTreeDocumentId(tree)
 
-    private fun documentUri(id: String): Uri = DocumentsContract.buildDocumentUriUsingTree(tree, id)
+    /** The address of the file or folder [id], to open or decode it. */
+    fun documentUri(id: String): Uri = DocumentsContract.buildDocumentUriUsingTree(tree, id)
 
     private fun childrenUri(id: String): Uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, id)
 
@@ -57,7 +59,87 @@ class NoteStore(context: Context, private val tree: Uri) {
                 }
             }
         }
-        return Library(rootName(), rootId, notes, folders)
+        val trashId = childId(rootId, TRASH)
+        val trash = trashId?.let { id -> listNotes(id, TRASH) }.orEmpty()
+        return Library(rootName(), rootId, notes, folders, trash, trashId)
+    }
+
+    /** The notes directly inside the folder [parentId] (at [path]), sub-folders left out. */
+    private fun listNotes(parentId: String, path: String): List<Note> =
+        resolver.query(childrenUri(parentId), CHILD_COLUMNS, null, null, null)?.use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val id = cursor.getString(0) ?: continue
+                    val name = cursor.getString(1) ?: continue
+                    if (cursor.getString(2) != Document.MIME_TYPE_DIR && isNoteFile(name)) {
+                        add(Note(id, name, parentId, path, cursor.getLong(3), cursor.getLong(4)))
+                    }
+                }
+            }
+        }.orEmpty()
+
+    /** The id of the file or folder called [name] directly inside [parentId], if there is one. */
+    fun childId(parentId: String, name: String): String? = runCatching {
+        resolver.query(childrenUri(parentId), arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { cursor ->
+            var found: String? = null
+            while (found == null && cursor.moveToNext()) if (cursor.getString(1) == name) found = cursor.getString(0)
+            found
+        }
+    }.getOrNull()
+
+    /** The folder called [name] inside [parentId], made if it isn't there yet. */
+    fun ensureFolder(parentId: String, name: String): String = childId(parentId, name)
+        ?: DocumentsContract.createDocument(resolver, documentUri(parentId), Document.MIME_TYPE_DIR, name)
+            ?.let(DocumentsContract::getDocumentId)
+        ?: error("Couldn't make $name")
+
+    /** The id of the file at [path] (relative to the notes folder, "Work/attachments/a.jpg"), if it exists. */
+    fun findPath(path: String): String? {
+        var id = rootId
+        for (part in path.split('/').filter { it.isNotEmpty() }) id = childId(id, part) ?: return null
+        return id
+    }
+
+    /**
+     * Moves [note] into the folder [targetId] (at [targetPath]) and returns it as it is there.
+     * Moving keeps the file's date. Providers that can't move, or a name already taken in the
+     * target, fall back to writing a copy (under a free name) and deleting the original.
+     */
+    fun move(note: Note, targetId: String, targetPath: String): Note {
+        val moved = if (namesIn(targetId).none { it.equals(note.name, ignoreCase = true) }) {
+            runCatching {
+                DocumentsContract.moveDocument(resolver, documentUri(note.id), documentUri(note.parentId), documentUri(targetId))
+            }.getOrNull()
+        } else {
+            null
+        }
+        if (moved != null) {
+            return note.copy(id = DocumentsContract.getDocumentId(moved), parentId = targetId, folder = targetPath)
+        }
+        val copy = create(targetId, targetPath, note.title, read(note.id))
+        delete(note.id)
+        return copy
+    }
+
+    /** Moves [note] to the trash folder (made if needed) and returns it as it is there. */
+    fun trash(note: Note): Note = move(note, ensureFolder(rootId, TRASH), TRASH)
+
+    /**
+     * Saves a picture from [input] into the "attachments" folder next to notes in [parentId],
+     * under a name made from the time, and returns its path as a note writes it
+     * ("attachments/image-20261118-031200.jpg").
+     */
+    fun saveImage(parentId: String, input: java.io.InputStream, extension: String): String {
+        val folderId = ensureFolder(parentId, ATTACHMENTS)
+        val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        val taken = namesIn(folderId).mapTo(HashSet()) { it.lowercase() }
+        var name = "image-$stamp.$extension"
+        var n = 2
+        while (name.lowercase() in taken) name = "image-$stamp-${n++}.$extension"
+        val uri = DocumentsContract.createDocument(resolver, documentUri(folderId), "application/octet-stream", name)
+            ?: error("Couldn't create $name")
+        resolver.openOutputStream(uri, "wt")?.use { input.copyTo(it) } ?: error("Couldn't write $name")
+        return "$ATTACHMENTS/$name"
     }
 
     private fun rootName(): String = runCatching {
@@ -169,6 +251,7 @@ class NoteStore(context: Context, private val tree: Uri) {
             Document.COLUMN_LAST_MODIFIED,
             Document.COLUMN_SIZE,
         )
+        const val TRASH = ".trash"
         const val MAX_DEPTH = 12
         const val MAX_WATCHED = 64
     }

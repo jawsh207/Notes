@@ -37,7 +37,8 @@ Describing the code is part of every change, not a follow-up:
 
 ## Tests
 
-Logic that doesn't need a phone (Markdown, file names, sorting, search, sync decisions) has
+Logic that doesn't need a phone (Markdown, front matter, checklists, pictures, file names, sorting,
+search, reminders, sync decisions) has
 unit tests in `app/src/test`. When you add or change such logic, add or update its tests. Keep
 that logic in plain functions outside the screens so it can be tested. CI runs the tests on
 every build and stops on a failure; run them locally with `./gradlew :app:testDebugUnitTest`.

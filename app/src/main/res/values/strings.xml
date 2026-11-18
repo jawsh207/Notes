@@ -22,18 +22,14 @@
 
     <!-- Home -->
     <string name="tab_notes">Notes</string>
-    <string name="tab_folders">Folders</string>
     <string name="search_notes">Search notes</string>
     <string name="new_note">New note</string>
     <string name="new_folder">New folder</string>
     <string name="folder_name">Folder name</string>
     <string name="folders">Folders</string>
     <string name="notes_here">Notes</string>
-    <string name="group_today">Today</string>
-    <string name="group_yesterday">Yesterday</string>
-    <string name="group_week">Previous 7 days</string>
-    <string name="group_month">Previous 30 days</string>
-    <string name="no_notes_title">No notes yet</string>
+    <string name="tab_browse">Browse</string>
+    <string name="no_notes_title">Notes you add appear here</string>
     <string name="no_notes_body">Tap New note to write one, or put .md files in “<xliff:g id="folder" example="Notes">%1$s</xliff:g>” and they\'ll show up here.</string>
     <string name="empty_folder_title">Nothing in this folder</string>
     <string name="empty_folder_body">Notes and folders you add here are saved as files right in it.</string>
@@ -41,7 +37,6 @@
         <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> note</item>
         <item quantity="other"><xliff:g id="count" example="12">%1$d</xliff:g> notes</item>
     </plurals>
-    <string name="deleted_note">Deleted “<xliff:g id="note" example="Shopping">%1$s</xliff:g>”</string>
 
     <!-- Search -->
     <string name="no_results_title">No matching notes</string>
@@ -77,5 +72,116 @@
     <string name="settings_monospace_summary">Write in a typewriter-style font where every letter is the same width</string>
     <string name="settings_about">About</string>
     <string name="about_title">Your notes are yours</string>
-    <string name="about_body">Every note is a Markdown file in your folder, named after its title. Changes from other devices and apps show up by themselves.</string>
+    <string name="about_body">Every note is a Markdown file in your folder, named after its title. Pins, colours, labels and reminders are kept in the file too, in the front matter other Markdown apps use. Changes from other devices and apps show up by themselves.</string>
+
+    <!-- Keep-style features -->
+    <string name="new_list">New list</string>
+    <string name="close_menu">Close</string>
+    <string name="grid_view">Grid view</string>
+    <string name="list_view">List view</string>
+    <string name="pinned">Pinned</string>
+    <string name="others">Others</string>
+    <string name="pin">Pin</string>
+    <string name="unpin">Unpin</string>
+    <string name="archive">Archive</string>
+    <string name="unarchive">Unarchive</string>
+    <string name="trash">Trash</string>
+    <string name="reminders">Reminders</string>
+    <string name="labels">Labels</string>
+    <string name="color">Colour</string>
+    <string name="no_color">No colour</string>
+    <string name="color_selected">Selected</string>
+    <string name="select_all">Select all</string>
+    <string name="clear_selection">Clear selection</string>
+    <string name="make_copy">Make a copy</string>
+    <string name="add">Add</string>
+    <string name="add_image">Add image</string>
+    <string name="remove_image">Remove image</string>
+    <string name="show_tick_boxes">Show tick boxes</string>
+    <string name="hide_tick_boxes">Hide tick boxes</string>
+    <string name="untick_all">Untick all items</string>
+    <string name="delete_ticked">Delete ticked items</string>
+    <string name="list_item">List item</string>
+    <string name="remove_item">Remove item</string>
+    <string name="indent">Indent</string>
+    <string name="outdent">Outdent</string>
+    <string name="edited_at">Edited <xliff:g id="time" example="3:42 PM">%1$s</xliff:g></string>
+    <string name="done">Done</string>
+    <string name="save">Save</string>
+    <string name="next">Next</string>
+    <plurals name="selected_count">
+        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> selected</item>
+        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> selected</item>
+    </plurals>
+    <plurals name="ticked_items">
+        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> ticked item</item>
+        <item quantity="other"><xliff:g id="count" example="4">%1$d</xliff:g> ticked items</item>
+    </plurals>
+    <plurals name="more_items">
+        <item quantity="one">+<xliff:g id="count" example="1">%1$d</xliff:g> more item</item>
+        <item quantity="other">+<xliff:g id="count" example="4">%1$d</xliff:g> more items</item>
+    </plurals>
+
+    <!-- Labels -->
+    <string name="label_note">Labels</string>
+    <string name="label_search">Find or make a label</string>
+    <string name="create_label">Create “<xliff:g id="label" example="Work">%1$s</xliff:g>”</string>
+    <string name="rename_label">Rename label</string>
+    <string name="delete_label">Delete label</string>
+    <string name="delete_label_title">Delete “<xliff:g id="label" example="Work">%1$s</xliff:g>”?</string>
+    <string name="delete_label_body">The label is taken off every note that has it. The notes themselves stay.</string>
+    <string name="label_empty_title">No notes with this label</string>
+    <string name="label_empty_body">Tap + to write one, or add the label to a note from its menu.</string>
+
+    <!-- Archive and trash -->
+    <string name="archive_empty_title">Your archived notes appear here</string>
+    <string name="archive_empty_body">Archive notes to get them out of the way without deleting them.</string>
+    <string name="trash_empty_title">No notes in the trash</string>
+    <string name="trash_empty_body">Deleted notes wait here for <xliff:g id="days" example="7">%1$d</xliff:g> days before they're gone for good.</string>
+    <string name="trash_hint">Notes in the trash are deleted after <xliff:g id="days" example="7">%1$d</xliff:g> days.</string>
+    <string name="trash_note_body">Put this note back, or delete it for good?</string>
+    <string name="restore">Restore</string>
+    <string name="delete_forever">Delete forever</string>
+    <string name="delete_forever_body">This can't be undone.</string>
+    <string name="empty_trash">Empty trash</string>
+    <string name="empty_trash_title">Empty the trash?</string>
+    <plurals name="delete_forever_title">
+        <item quantity="one">Delete this note forever?</item>
+        <item quantity="other">Delete <xliff:g id="count" example="3">%1$d</xliff:g> notes forever?</item>
+    </plurals>
+    <string name="trashed_one">“<xliff:g id="note" example="Shopping">%1$s</xliff:g>” moved to the trash</string>
+    <plurals name="trashed_many">
+        <item quantity="one">Note moved to the trash</item>
+        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> notes moved to the trash</item>
+    </plurals>
+    <plurals name="archived_many">
+        <item quantity="one">Note archived</item>
+        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> notes archived</item>
+    </plurals>
+    <plurals name="unarchived_many">
+        <item quantity="one">Note unarchived</item>
+        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> notes unarchived</item>
+    </plurals>
+
+    <!-- Reminders -->
+    <string name="remind_me">Remind me</string>
+    <string name="later_today">Later today</string>
+    <string name="tomorrow_morning">Tomorrow morning</string>
+    <string name="next_week">Next week</string>
+    <string name="pick_date_time">Pick a date and time</string>
+    <string name="pick_time">Pick a time</string>
+    <string name="remove_reminder">Remove reminder</string>
+    <string name="reminder_at"><xliff:g id="day" example="Tomorrow">%1$s</xliff:g>, <xliff:g id="time" example="8:00 AM">%2$s</xliff:g></string>
+    <string name="day_today">Today</string>
+    <string name="day_tomorrow">Tomorrow</string>
+    <string name="day_yesterday">Yesterday</string>
+    <string name="reminder_notification">Reminder</string>
+    <string name="reminders_empty_title">Notes with reminders appear here</string>
+    <string name="reminders_empty_body">Tap the bell on a note to be reminded about it.</string>
+
+    <!-- More settings -->
+    <string name="settings_grid_title">Grid view</string>
+    <string name="settings_grid_summary">Show notes as two columns of cards</string>
+    <string name="settings_ticked_title">Move ticked items to the bottom</string>
+    <string name="settings_ticked_summary">In checklists, ticked items gather under the rest</string>
 </resources>

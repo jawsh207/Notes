@@ -23,13 +23,19 @@ import app.slate.notes.R
 
 /**
  * The top bar of every screen that covers the tabs, as in Contacts' Settings: back, a title and
- * room for [actions]. Opaque in the background colour (status bar included), so lists scroll
- * behind it.
+ * room for [actions]. Opaque in the background colour (status bar included, unless
+ * [insetStatusBar] is off because the caller already pads for it), so lists scroll behind it.
  */
 @Composable
-fun BackTopBar(title: String, onBack: () -> Unit, actions: @Composable RowScope.() -> Unit = {}) {
+fun BackTopBar(
+    title: String,
+    onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
+    insetStatusBar: Boolean = true,
+) {
     Row(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).statusBarsPadding()
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+            .then(if (insetStatusBar) Modifier.statusBarsPadding() else Modifier)
             .height(64.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
