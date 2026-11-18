@@ -104,7 +104,9 @@ fun LazyStaggeredGridScope.noteCards(
     pinSections: Boolean = true,
     presorted: Boolean = false,
 ) {
-    val sorted = if (presorted) notes else sortNotes(notes, order)
+    // Each note may appear only once: the grid stops the app if two cards share a key.
+    val unique = notes.distinctBy { it.id }
+    val sorted = if (presorted) unique else sortNotes(unique, order)
     val pinned = if (pinSections) sorted.filter { infos[it.id]?.meta?.pinned == true } else emptyList()
     val others = if (pinned.isEmpty()) sorted else sorted.filter { infos[it.id]?.meta?.pinned != true }
     fun section(header: Int?, members: List<Note>) {

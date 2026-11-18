@@ -351,13 +351,21 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val note = runCatching { withContext(Dispatchers.IO) { opened.create(parentId, folderPath, UNTITLED, text) } }.getOrNull()
                 ?: return@launch
-            _library.value = _library.value?.let { it.copy(notes = it.notes + note) }
+            addToLibrary(note)
             _infos.value = _infos.value + (note.id to noteInfoOf(text, note.title))
             closeSession()
             _session.value = NoteSession(opened, note, viewModelScope, isNew = true, onSaved = ::onSaved)
             onMade(note.id)
             poke()
         }
+    }
+
+    /**
+     * Adds a note the app just made to the list straight away. Making the file can already have
+     * set off a fresh look at the folder that found it, so any copy of it is replaced, not doubled.
+     */
+    private fun addToLibrary(note: Note) {
+        _library.value = _library.value?.let { library -> library.copy(notes = library.notes.filter { it.id != note.id } + note) }
     }
 
     /** Makes a folder called [name] inside the one at [parentPath]. */
@@ -503,7 +511,9 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             }
             val movedIds = moved.mapTo(HashSet()) { it.first.id }
             _library.value = _library.value?.let { library ->
-                library.copy(notes = library.notes.filter { it.id !in movedIds }, trash = library.trash + moved.map { it.second })
+                val trashed = moved.map { it.second }
+                val trashedIds = trashed.mapTo(HashSet()) { it.id }
+                library.copy(notes = library.notes.filter { it.id !in movedIds }, trash = library.trash.filter { it.id !in trashedIds } + trashed)
             }
             _undo.value = UndoAction(UndoKind.Trashed, moved.size, moved.singleOrNull()?.first?.title) { restore(moved.map { it.second }) }
             poke()
@@ -552,7 +562,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             val made = runCatching {
                 withContext(Dispatchers.IO) { opened.create(note.parentId, note.folder, note.title, opened.read(note.id)) }
             }.getOrNull() ?: return@launch
-            _library.value = _library.value?.let { it.copy(notes = it.notes + made) }
+            addToLibrary(made)
             poke()
             onMade(made.id)
         }

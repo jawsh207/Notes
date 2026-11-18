@@ -126,7 +126,7 @@ fun SearchScreen(viewModel: NotesViewModel, onOpen: (String) -> Unit, onBack: ()
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = padding.calculateTopPadding() + 8.dp, bottom = 24.dp),
                 modifier = Modifier.imePadding(),
             ) {
-                items(hits, key = { it.note.id }) { hit ->
+                items(hits.distinctBy { it.note.id }, key = { it.note.id }) { hit ->
                     NoteCard(
                         note = hit.note,
                         info = infos[hit.note.id],
