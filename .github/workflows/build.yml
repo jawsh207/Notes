@@ -85,8 +85,15 @@ jobs:
             KEY="$DEV_KEYSTORE_BASE64"; PASS="$DEV_KEYSTORE_PASSWORD"; ALIAS=notes-dev
             VARIANT=dev; echo "VARIANT=$VARIANT" >> "$GITHUB_ENV"
           fi
+          set -o pipefail
+          # Pasting a secret often brings a stray line break or space along; neither belongs in it.
+          PASS="${PASS#"${PASS%%[![:space:]]*}"}"; PASS="${PASS%"${PASS##*[![:space:]]}"}"
+          KEY=$(printf '%s' "$KEY" | tr -d '[:space:]')
           if [ -n "$KEY" ]; then
-            echo "$KEY" | base64 -d > "$RUNNER_TEMP/signing.jks"
+            if ! printf '%s' "$KEY" | base64 -d > "$RUNNER_TEMP/signing.jks" 2>/dev/null; then
+              echo "::error::The ${VARIANT^^} keystore secret isn't valid base64. Paste the whole of ${VARIANT^^}_KEYSTORE_BASE64 again."
+              exit 1
+            fi
             # Checks the key before Gradle does, whose error for a wrong key is just "null".
             if ! ALIASES=$(keytool -list -keystore "$RUNNER_TEMP/signing.jks" -storepass "$PASS" 2>/dev/null | grep -i 'PrivateKeyEntry' | cut -d, -f1); then
               echo "::error::The ${VARIANT^^} password secret doesn't open the ${VARIANT^^} keystore secret. Check both were pasted in full, with no extra spaces or line breaks."
