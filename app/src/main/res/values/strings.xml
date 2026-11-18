@@ -137,12 +137,12 @@
     <string name="archive_empty_title">Your archived notes appear here</string>
     <string name="archive_empty_body">Archive notes to get them out of the way without deleting them.</string>
     <string name="trash_empty_title">No notes in the trash</string>
-    <string name="trash_empty_body">Deleted notes wait here for <xliff:g id="days" example="7">%1$d</xliff:g> days before they're gone for good.</string>
+    <string name="trash_empty_body">Deleted notes wait here for <xliff:g id="days" example="7">%1$d</xliff:g> days before they\'re gone for good.</string>
     <string name="trash_hint">Notes in the trash are deleted after <xliff:g id="days" example="7">%1$d</xliff:g> days.</string>
     <string name="trash_note_body">Put this note back, or delete it for good?</string>
     <string name="restore">Restore</string>
     <string name="delete_forever">Delete forever</string>
-    <string name="delete_forever_body">This can't be undone.</string>
+    <string name="delete_forever_body">This can\'t be undone.</string>
     <string name="empty_trash">Empty trash</string>
     <string name="empty_trash_title">Empty the trash?</string>
     <plurals name="delete_forever_title">
