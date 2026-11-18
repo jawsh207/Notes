@@ -45,8 +45,8 @@ GitHub Actions builds two kinds of APK, each signed with its own key:
 
 | | When | App | Artifact |
 | --- | --- | --- | --- |
-| **Test build** | every push to `main`, PRs, manual runs | "Notes Dev" (`app.folio.notes.dev`) | `notes-dev-apk` on the run page |
-| **Release** | Actions → **Build release** → Run workflow; or pushing to the `release` branch | "Notes" (`app.folio.notes`) | attached to a GitHub Release |
+| **Test build** | every push to `main`, PRs, manual runs | "Notes Dev" (`app.slate.notes.dev`) | `notes-dev-apk` on the run page |
+| **Release** | Actions → **Build release** → Run workflow; or pushing to the `release` branch | "Notes" (`app.slate.notes`) | attached to a GitHub Release |
 
 A release is tagged with the version name on line 2 of `version.txt` (line 1 is the version
 code, which must go up with every release), and its notes come from that version's section of

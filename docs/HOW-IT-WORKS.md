@@ -1,7 +1,7 @@
 # How Notes works
 
 A plain-language guide to the app: what each part does and where it lives in the code. No
-programming knowledge needed. File paths are inside `app/src/main/java/app/folio/notes/`.
+programming knowledge needed. File paths are inside `app/src/main/java/app/slate/notes/`.
 
 ## The big picture
 

@@ -7,12 +7,12 @@ plugins {
 val versionLines = rootProject.file("version.txt").readLines().map { it.trim() }
 
 android {
-    namespace = "app.folio.notes"
+    namespace = "app.slate.notes"
     // Material 3 Expressive (1.5) needs compileSdk 37 and AGP 9.1+.
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "app.folio.notes"
+        applicationId = "app.slate.notes"
         minSdk = 31 // Wallpaper colours
         targetSdk = 36
         versionCode = versionLines[0].toInt()

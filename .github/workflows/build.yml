@@ -2,7 +2,7 @@ name: Build APK
 
 # Two kinds of build, each with its own signing key:
 #   - Test builds: every push to main (and PRs / manual runs). The `dev` variant
-#     ("Notes Dev", app id app.folio.notes.dev), always signed with the dev
+#     ("Notes Dev", app id app.slate.notes.dev), always signed with the dev
 #     key so each one installs over the last.
 #   - Releases: the "Build release" workflow (release.yml), a push to the `release`
 #     branch, or a version tag such as v1.0. The `release` variant, signed with the
@@ -155,10 +155,10 @@ jobs:
           script: |
             adb install -r app/build/outputs/apk/release/*.apk
             adb logcat -c
-            adb shell am start -W -n app.folio.notes/.MainActivity
+            adb shell am start -W -n app.slate.notes/.MainActivity
             sleep 15
             adb logcat -d -b crash > "$RUNNER_TEMP/crash.txt" || true
-            if adb shell pidof app.folio.notes > /dev/null && ! grep -q 'Process: app.folio.notes' "$RUNNER_TEMP/crash.txt"; then echo "The app opened and is still running."; else touch "$RUNNER_TEMP/launch-failed"; fi
+            if adb shell pidof app.slate.notes > /dev/null && ! grep -q 'Process: app.slate.notes' "$RUNNER_TEMP/crash.txt"; then echo "The app opened and is still running."; else touch "$RUNNER_TEMP/launch-failed"; fi
 
       - name: Report launch failure
         if: env.IS_RELEASE == 'true'
