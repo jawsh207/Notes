@@ -55,7 +55,7 @@ a new note.
 
 | Screen | What it's for | File |
 | --- | --- | --- |
-| First run | Explains the folder idea and opens the folder picker; also shown if the folder can't be reached | `ui/setup/SetupScreen.kt` |
+| First run | A welcome with three short points about how notes are kept, and the button that opens the folder picker; also shown if the folder can't be reached | `ui/setup/SetupScreen.kt` |
 | Notes tab | Every note that isn't archived, as cards, pinned first; pull to refresh | `ui/notes/NotesTab.kt`, `ui/notes/NoteGrid.kt` |
 | Browse tab | Reminders, Archive, Trash, every label and the top folders | `ui/browse/BrowseTab.kt` |
 | Folder page | One folder's sub-folders and notes, with the + menu and New folder | `ui/folders/FolderScreen.kt` |

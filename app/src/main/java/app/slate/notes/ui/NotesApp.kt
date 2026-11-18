@@ -107,8 +107,8 @@ fun NotesApp(viewModel: NotesViewModel) {
 
     val folder by viewModel.folder.collectAsStateWithLifecycle()
     when (val state = folder) {
-        FolderState.Loading -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-            LoadingIndicator()
+        FolderState.Loading -> Scaffold { padding ->
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { LoadingIndicator() }
         }
         is FolderState.Needed -> SetupScreen(lost = state.lost, onChosen = viewModel::chooseFolder)
         FolderState.Ready -> Screens(viewModel)

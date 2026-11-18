@@ -14,8 +14,15 @@
     <string name="settings">Settings</string>
 
     <!-- First run -->
-    <string name="setup_title">Choose a notes folder</string>
-    <string name="setup_body">Your notes are plain .md files in a folder you pick. No account, no cloud: copy them to a computer, back them up, or keep the folder in sync with any tool you like.</string>
+    <string name="setup_title">Welcome to Notes</string>
+    <string name="setup_body">Pick a folder for your notes. That\'s all the setup there is.</string>
+    <string name="setup_point_files">Plain files you own</string>
+    <string name="setup_point_files_body">Every note is a Markdown file you can open in any app</string>
+    <string name="setup_point_sync">Sync your way</string>
+    <string name="setup_point_sync_body">Syncthing, a cloud drive or git keeps them on all your devices</string>
+    <string name="setup_point_private">No account</string>
+    <string name="setup_point_private_body">Nothing leaves your phone unless you send it</string>
+    <string name="setup_change_later">You can choose a different folder later in Settings</string>
     <string name="setup_lost_title">Can\'t reach your notes folder</string>
     <string name="setup_lost_body">It may have been moved or renamed, or access was turned off. Choose it again to carry on. Your notes are still in their files.</string>
     <string name="choose_folder">Choose folder</string>
