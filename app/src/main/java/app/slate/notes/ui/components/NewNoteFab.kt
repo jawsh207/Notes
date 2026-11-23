@@ -11,6 +11,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import app.slate.notes.R
 
 /** An extra choice in the [NewNoteFab] menu, such as New folder. */
@@ -36,6 +38,10 @@ fun NewNoteFab(onNote: () -> Unit, onList: () -> Unit, extra: List<FabChoice> = 
     BackHandler(enabled = open) { open = false }
     FloatingActionButtonMenu(
         expanded = open,
+        // The menu pads itself 16dp at the side and bottom, on top of the 16dp the screen frame
+        // already leaves; this takes it back, so the button sits where Contacts' and Twill's do.
+        // offset follows right-to-left layouts, where the button sits on the left.
+        modifier = Modifier.offset(x = 16.dp, y = 16.dp),
         button = {
             ToggleFloatingActionButton(checked = open, onCheckedChange = { open = it }) {
                 // A quarter turn as it opens: + becomes ×. The button doesn't colour its icon itself,

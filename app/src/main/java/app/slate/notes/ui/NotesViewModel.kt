@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
@@ -111,10 +112,13 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     /** What each note's text says, by note id. Fills in shortly after the list appears. */
     val infos: StateFlow<Map<String, NoteInfo>> = _infos.asStateFlow()
 
-    /** Every label used by any note, A to Z. */
-    val labels: StateFlow<List<String>> = _infos.map { infos ->
+    /**
+     * Every label used by a note outside the trash, A to Z. Notes in the trash don't count, so a
+     * label taken off every note goes away even if a trashed note still has it.
+     */
+    val labels: StateFlow<List<String>> = combine(_library, _infos) { library, infos ->
         val collator = Collator.getInstance().apply { strength = Collator.SECONDARY }
-        infos.values.flatMap { it.meta.tags }.distinctBy { it.lowercase() }.sortedWith(collator)
+        library?.notes.orEmpty().flatMap { infos[it.id]?.meta?.tags.orEmpty() }.distinctBy { it.lowercase() }.sortedWith(collator)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** How lists are sorted. */

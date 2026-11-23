@@ -84,7 +84,7 @@ fun CollectionScreen(
                 state = grid,
                 inGrid = inGrid,
                 contentPadding = PaddingValues(
-                    start = 12.dp, end = 12.dp,
+                    start = 16.dp, end = 16.dp,
                     top = padding.calculateTopPadding() + 8.dp,
                     bottom = padding.calculateBottomPadding() + 96.dp,
                 ),

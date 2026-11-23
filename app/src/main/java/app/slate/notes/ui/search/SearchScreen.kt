@@ -123,7 +123,7 @@ fun SearchScreen(viewModel: NotesViewModel, onOpen: (String) -> Unit, onBack: ()
             NoteGrid(
                 state = rememberLazyStaggeredGridState(),
                 inGrid = inGrid,
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = padding.calculateTopPadding() + 8.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = 24.dp),
                 modifier = Modifier.imePadding(),
             ) {
                 items(hits.distinctBy { it.note.id }, key = { it.note.id }) { hit ->

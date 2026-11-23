@@ -113,7 +113,7 @@ fun LazyStaggeredGridScope.noteCards(
         if (members.isEmpty()) return
         if (header != null) {
             item(key = "$keyPrefix:header:$header", span = StaggeredGridItemSpan.FullLine, contentType = "header") {
-                SectionHeader(stringResource(header), Modifier.animateItem())
+                SectionHeader(stringResource(header), Modifier.animateItem(), start = 16.dp)
             }
         }
         items(members, key = { "$keyPrefix:note:${it.id}" }, contentType = { "note" }) { note ->

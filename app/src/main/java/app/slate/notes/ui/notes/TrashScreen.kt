@@ -112,7 +112,7 @@ fun TrashScreen(viewModel: NotesViewModel, onBack: () -> Unit) {
             NoteGrid(
                 state = grid,
                 inGrid = inGrid,
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = padding.calculateTopPadding() + 8.dp, bottom = 48.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = 48.dp),
             ) {
                 item(key = "hint", span = StaggeredGridItemSpan.FullLine) {
                     Text(

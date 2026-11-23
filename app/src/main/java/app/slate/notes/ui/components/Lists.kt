@@ -36,15 +36,18 @@ fun segmentShape(index: Int, count: Int, large: Dp = 24.dp, small: Dp = 6.dp): S
 /** Space between the rows of a grouped list. */
 val SEGMENT_GAP = 2.dp
 
-/** A section heading in the theme's primary colour. */
+/**
+ * A section heading in the theme's primary colour, 32dp from the screen edge to line up with
+ * the text in the cards below. In a grid that already keeps 16dp from the edge, [start] is 16dp.
+ */
 @Composable
-fun SectionHeader(text: String, modifier: Modifier = Modifier) {
+fun SectionHeader(text: String, modifier: Modifier = Modifier, start: Dp = 32.dp) {
     Text(
         text,
         style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.Medium,
         color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(start = 32.dp, top = 20.dp, bottom = 8.dp),
+        modifier = modifier.padding(start = start, top = 20.dp, bottom = 8.dp),
     )
 }
 

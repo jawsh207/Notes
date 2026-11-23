@@ -100,9 +100,21 @@ private class Place(val icon: ImageVector, val title: Int, val count: Int, val s
 /** How many notes (not in the trash) [test] picks out. */
 private fun Library.count(infos: Map<String, NoteInfo>, test: (NoteInfo?) -> Boolean): Int = notes.count { test(infos[it.id]) }
 
-/** A row in Browse: an icon, a name, how many notes, and an arrow. */
+/**
+ * A row in Browse: an icon, a name, how many notes, and an arrow. It keeps 16dp from the screen
+ * edges itself, unless [inset] is off because it sits in a grid that already does.
+ */
 @Composable
-fun BrowseRow(icon: ImageVector, title: String, count: Int, index: Int, size: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun BrowseRow(
+    icon: ImageVector,
+    title: String,
+    count: Int,
+    index: Int,
+    size: Int,
+    modifier: Modifier = Modifier,
+    inset: Boolean = true,
+    onClick: () -> Unit,
+) {
     ListRow(
         icon = icon,
         title = title,
@@ -110,6 +122,6 @@ fun BrowseRow(icon: ImageVector, title: String, count: Int, index: Int, size: In
         shape = segmentShape(index, size),
         onClick = onClick,
         trailing = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = modifier.padding(horizontal = 16.dp),
+        modifier = if (inset) modifier.padding(horizontal = 16.dp) else modifier,
     )
 }

@@ -64,7 +64,7 @@ fun NotesTab(
                 state = gridState,
                 inGrid = inGrid,
                 // Room under the last card for the + button.
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = contentPadding.calculateBottomPadding() + 96.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = contentPadding.calculateBottomPadding() + 96.dp),
             ) {
                 noteCards(notes, infos, viewModel.store(), order, inGrid, showFolder = true, selection = selection, onOpen = { onOpen(it.id) }, keyPrefix = "all")
             }

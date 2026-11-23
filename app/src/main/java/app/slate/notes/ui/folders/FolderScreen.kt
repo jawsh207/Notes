@@ -91,7 +91,7 @@ fun FolderScreen(
         NoteGrid(
             state = grid,
             inGrid = inGrid,
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 96.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 96.dp),
         ) {
             if (folders.isEmpty() && notes.isEmpty() && library != null) {
                 item(key = "empty", span = StaggeredGridItemSpan.FullLine) {
@@ -104,14 +104,14 @@ fun FolderScreen(
                 }
             }
             if (folders.isNotEmpty()) {
-                item(key = "folders", span = StaggeredGridItemSpan.FullLine) { SectionHeader(stringResource(R.string.folders), Modifier.animateItem()) }
+                item(key = "folders", span = StaggeredGridItemSpan.FullLine) { SectionHeader(stringResource(R.string.folders), Modifier.animateItem(), start = 16.dp) }
                 itemsIndexed(folders, key = { _, folder -> "folder:${folder.id}" }, span = { _, _ -> StaggeredGridItemSpan.FullLine }) { index, folder ->
                     val count = library?.notes.orEmpty().count { it.folder == folder.path || it.folder.startsWith(folder.path + "/") }
-                    BrowseRow(Icons.Outlined.Folder, folder.name, count, index, folders.size, Modifier.animateItem()) {
+                    BrowseRow(Icons.Outlined.Folder, folder.name, count, index, folders.size, Modifier.animateItem(), inset = false) {
                         onOpenFolder(folder.path)
                     }
                 }
-                if (notes.isNotEmpty()) item(key = "notes", span = StaggeredGridItemSpan.FullLine) { SectionHeader(stringResource(R.string.notes_here), Modifier.animateItem()) }
+                if (notes.isNotEmpty()) item(key = "notes", span = StaggeredGridItemSpan.FullLine) { SectionHeader(stringResource(R.string.notes_here), Modifier.animateItem(), start = 16.dp) }
             }
             noteCards(notes, infos, viewModel.store(), order, inGrid, showFolder = false, selection = selection, onOpen = { onOpen(it.id) }, keyPrefix = "in:$path")
         }
