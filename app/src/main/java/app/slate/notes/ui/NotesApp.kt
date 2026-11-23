@@ -29,7 +29,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Archive
-import androidx.compose.material.icons.outlined.CreateNewFolder
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Explore
@@ -79,7 +79,9 @@ import app.slate.notes.ui.components.NewNoteFab
 import app.slate.notes.ui.components.SearchPill
 import app.slate.notes.ui.components.TextInputDialog
 import app.slate.notes.ui.editor.EditorScreen
-import app.slate.notes.ui.folders.FolderScreen
+import app.slate.notes.data.cleanNotebookName
+import app.slate.notes.ui.notebooks.NotebookDialog
+import app.slate.notes.ui.notebooks.NotebookScreen
 import app.slate.notes.ui.notes.CollectionScreen
 import app.slate.notes.ui.notes.NotesTab
 import app.slate.notes.ui.notes.SelectedNotesBar
@@ -130,8 +132,8 @@ private fun Screens(viewModel: NotesViewModel) {
     }
     BackHandler(enabled = stack.size > 1, onBack = back)
     val openNote: (String) -> Unit = { open(Screen.Note(it)) }
-    val newNote: (folder: String, list: Boolean, label: String?) -> Unit = { path, list, label ->
-        viewModel.createNote(path, list, label) { id -> open(Screen.Note(id)) }
+    val newNote: (notebook: String?, list: Boolean, label: String?) -> Unit = { notebook, list, label ->
+        viewModel.createNote(notebook, list, label) { id -> open(Screen.Note(id)) }
     }
 
     // A note asked for by a reminder notification opens once the folder has been read.
@@ -220,11 +222,11 @@ private fun Screens(viewModel: NotesViewModel) {
                 is Screen.Label -> LabelScreen(viewModel, screen.name, openNote, newNote, back) { renamed ->
                     stack[stack.lastIndex] = Screen.Label(renamed)
                 }
-                is Screen.Folder -> FolderScreen(
-                    viewModel, screen.path,
+                is Screen.Notebook -> NotebookScreen(
+                    viewModel, screen.name,
                     onOpen = openNote,
-                    onOpenFolder = { open(Screen.Folder(it)) },
-                    onNew = { list -> newNote(screen.path, list, null) },
+                    onNew = { list -> newNote(screen.name, list, null) },
+                    onRenamed = { renamed -> stack[stack.lastIndex] = Screen.Notebook(renamed) },
                     onBack = back,
                 )
                 is Screen.Note -> EditorScreen(
@@ -253,7 +255,7 @@ private fun LabelScreen(
     viewModel: NotesViewModel,
     label: String,
     onOpen: (String) -> Unit,
-    newNote: (String, Boolean, String?) -> Unit,
+    newNote: (String?, Boolean, String?) -> Unit,
     onBack: () -> Unit,
     onRenamed: (String) -> Unit,
 ) {
@@ -286,7 +288,7 @@ private fun LabelScreen(
                 }
             }
         },
-        fab = { NewNoteFab(onNote = { newNote("", false, label) }, onList = { newNote("", true, label) }) },
+        fab = { NewNoteFab(onNote = { newNote(null, false, label) }, onList = { newNote(null, true, label) }) },
     )
     if (renaming) {
         TextInputDialog(
@@ -321,7 +323,7 @@ private fun LabelScreen(
 /**
  * The bottom tabs, as swipeable pages (as in Contacts and Dialtone): swipe between them or tap
  * the bottom bar. Back from Browse returns to Notes. The + springs open into New note and New
- * list (and New folder on Browse). Long-pressing a card picks it, and the search bar becomes a
+ * list (and New notebook on Browse); new notes go into the notebook the Notes tab is showing. Long-pressing a card picks it, and the search bar becomes a
  * bar of actions for the picked notes.
  */
 @Composable
@@ -330,7 +332,7 @@ private fun Home(
     tab: Tab,
     onTabChange: (Tab) -> Unit,
     open: (Screen) -> Unit,
-    newNote: (String, Boolean, String?) -> Unit,
+    newNote: (String?, Boolean, String?) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val pager = rememberPagerState(initialPage = tab.ordinal) { Tab.entries.size }
@@ -347,7 +349,9 @@ private fun Home(
     val inGrid by viewModel.grid.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
-    var naming by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf(false) }
+    // The notebook the Notes tab is showing; null for all of them. New notes go into it.
+    var notebook by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(
         // Pinned above the tabs, as in Contacts: lists scroll behind it.
@@ -384,10 +388,10 @@ private fun Home(
         floatingActionButton = {
             if (!selecting) {
                 NewNoteFab(
-                    onNote = { newNote("", false, null) },
-                    onList = { newNote("", true, null) },
+                    onNote = { newNote(notebook, false, null) },
+                    onList = { newNote(notebook, true, null) },
                     extra = if (current == Tab.Browse) {
-                        listOf(FabChoice(stringResource(R.string.new_folder), Icons.Outlined.CreateNewFolder) { naming = true })
+                        listOf(FabChoice(stringResource(R.string.new_notebook), Icons.AutoMirrored.Outlined.MenuBook) { creating = true })
                     } else {
                         emptyList()
                     },
@@ -414,20 +418,34 @@ private fun Home(
             userScrollEnabled = !selecting,
         ) { page ->
             when (Tab.entries[page]) {
-                Tab.Notes -> NotesTab(viewModel, padding, notesGrid, selection, onOpen = { open(Screen.Note(it)) })
-                Tab.Browse -> BrowseTab(viewModel, padding, browseList, open)
+                Tab.Notes -> NotesTab(
+                    viewModel, padding, notesGrid, selection,
+                    notebook = notebook,
+                    onNotebookChange = { notebook = it },
+                    onNewNotebook = { creating = true },
+                    onOpen = { open(Screen.Note(it)) },
+                )
+                Tab.Browse -> BrowseTab(viewModel, padding, browseList, open, onNewNotebook = { creating = true })
             }
         }
     }
 
-    if (naming) {
-        TextInputDialog(
-            title = stringResource(R.string.new_folder),
-            initial = "",
+    if (creating) {
+        NotebookDialog(
+            title = stringResource(R.string.new_notebook),
             confirmLabel = stringResource(R.string.create),
-            fieldLabel = stringResource(R.string.folder_name),
-            onConfirm = { name -> naming = false; viewModel.createFolder("", name) },
-            onDismiss = { naming = false },
+            initialName = "",
+            initialColor = null,
+            onConfirm = { name, color ->
+                viewModel.createNotebook(name, color).also { made ->
+                    if (made) {
+                        creating = false
+                        // A notebook made from the Notes tab is shown straight away, ready for notes.
+                        if (current == Tab.Notes) notebook = cleanNotebookName(name)
+                    }
+                }
+            },
+            onDismiss = { creating = false },
         )
     }
 }

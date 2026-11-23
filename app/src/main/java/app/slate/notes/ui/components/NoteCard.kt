@@ -29,7 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
-import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -59,7 +59,7 @@ val CARD_SHAPE = RoundedCornerShape(20.dp)
 
 /**
  * A note as a card, as in Google Keep: its picture, title, a few lines of text (or the first
- * checklist items), then its reminder, labels and folder as small chips, all on the note's
+ * checklist items), then its reminder, labels and notebook as small chips, all on the note's
  * colour. Tapping opens it, or in selection mode picks it; a long press starts selecting.
  * While [selected], it's outlined and ticked. In the grid ([inGrid]) cards show more lines
  * of text, as they're narrower. The card gives a little under the finger.
@@ -135,7 +135,7 @@ fun NoteCard(
                 meta?.reminder?.let { chips += Icons.Outlined.Alarm to reminderLabel(it) }
                 meta?.tags?.take(3)?.forEach { chips += null to it }
                 meta?.tags?.size?.takeIf { it > 3 }?.let { chips += null to "+${it - 3}" }
-                if (showFolder && note.folder.isNotEmpty()) chips += Icons.Outlined.Folder to note.folder.substringAfterLast('/')
+                if (showFolder && note.notebook.isNotEmpty()) chips += Icons.AutoMirrored.Outlined.MenuBook to note.notebook
                 if (chips.isNotEmpty()) {
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),

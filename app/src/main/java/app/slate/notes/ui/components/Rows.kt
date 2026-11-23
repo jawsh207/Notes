@@ -30,6 +30,7 @@ import app.slate.notes.R
 /**
  * A row in a grouped list: an icon, a title, an optional line under it, and an optional control
  * at the end. Tappable as a whole when [onClick] is given, giving a little under the finger.
+ * [iconTint] colours the icon (a notebook's colour, say).
  */
 @Composable
 fun ListRow(
@@ -41,11 +42,12 @@ fun ListRow(
     summaryColor: androidx.compose.ui.graphics.Color? = null,
     onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    iconTint: androidx.compose.ui.graphics.Color? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val content: @Composable () -> Unit = {
         Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = scheme.onSurfaceVariant)
+            Icon(icon, null, tint = iconTint ?: scheme.onSurfaceVariant)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)

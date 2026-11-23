@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.AddAlert
 import androidx.compose.material.icons.outlined.Archive
@@ -45,12 +46,15 @@ import app.slate.notes.ui.NotesViewModel
 import app.slate.notes.ui.components.ColorSheet
 import app.slate.notes.ui.components.LabelDialog
 import app.slate.notes.ui.components.ReminderDialog
+import app.slate.notes.data.sortFolders
+import app.slate.notes.ui.notebooks.MoveToNotebookSheet
+import app.slate.notes.ui.notebooks.NotebookDialog
 import app.slate.notes.util.shareNote
 
 /**
  * Replaces the top bar while notes are picked, as in Google Keep: how many, and pin, colour,
- * label, archive and delete for all of them, with select all, reminder, copy and share in the
- * menu. [visible] are the notes on the screen, for Select all.
+ * label, archive and delete for all of them, with select all, move to a notebook, reminder,
+ * copy and share in the menu. [visible] are the notes on the screen, for Select all.
  */
 @Composable
 fun SelectedNotesBar(viewModel: NotesViewModel, selection: Selection, visible: List<Note>, onOpen: (String) -> Unit) {
@@ -65,6 +69,10 @@ fun SelectedNotesBar(viewModel: NotesViewModel, selection: Selection, visible: L
     var coloring by remember { mutableStateOf(false) }
     var labeling by remember { mutableStateOf(false) }
     var reminding by remember { mutableStateOf(false) }
+    var moving by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf(false) }
+    val library by viewModel.library.collectAsStateWithLifecycle()
+    val colors by viewModel.notebookColors.collectAsStateWithLifecycle()
 
     // As tall as the search bar with its padding, so nothing shifts.
     Row(Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -93,6 +101,11 @@ fun SelectedNotesBar(viewModel: NotesViewModel, selection: Selection, visible: L
                     text = { Text(stringResource(R.string.select_all)) },
                     leadingIcon = { Icon(Icons.Outlined.SelectAll, null) },
                     onClick = { menu = false; selection.selectAll(visible.map { it.id }) },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.move_to_notebook)) },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.DriveFileMove, null) },
+                    onClick = { menu = false; moving = true },
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.labels)) },
@@ -149,6 +162,40 @@ fun SelectedNotesBar(viewModel: NotesViewModel, selection: Selection, visible: L
             },
             onToggle = { label, add -> viewModel.setLabel(picked, label, add) },
             onDismiss = { labeling = false },
+        )
+    }
+    if (moving) {
+        MoveToNotebookSheet(
+            notebooks = sortFolders(library?.notebooks.orEmpty()),
+            colors = colors,
+            current = picked.map { it.notebook }.distinct().singleOrNull(),
+            onPick = { notebook ->
+                moving = false
+                viewModel.moveToNotebook(picked, notebook)
+                selection.clear()
+            },
+            onNew = {
+                moving = false
+                creating = true
+            },
+            onDismiss = { moving = false },
+        )
+    }
+    if (creating) {
+        NotebookDialog(
+            title = stringResource(R.string.new_notebook),
+            confirmLabel = stringResource(R.string.create),
+            initialName = "",
+            initialColor = null,
+            onConfirm = { name, color ->
+                viewModel.createNotebook(name, color) { made -> viewModel.moveToNotebook(picked, made) }.also { made ->
+                    if (made) {
+                        creating = false
+                        selection.clear()
+                    }
+                }
+            },
+            onDismiss = { creating = false },
         )
     }
     if (reminding) {

@@ -14,7 +14,8 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
@@ -23,13 +24,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.slate.notes.R
-import app.slate.notes.data.ATTACHMENTS
 import app.slate.notes.data.Library
 import app.slate.notes.data.NoteInfo
 import app.slate.notes.data.sortFolders
@@ -41,11 +42,19 @@ import app.slate.notes.ui.components.SectionHeader
 import app.slate.notes.ui.components.segmentShape
 
 /**
- * The Browse tab, in place of Google Keep's side drawer: Reminders, Archive and Trash, then
- * every label and the folders at the top of the notes folder, each with how many notes it holds.
+ * The Browse tab, in place of Google Keep's side drawer: Reminders, Archive and Trash, every
+ * label, and the notebooks in their colours, each with how many notes it holds, and a row to
+ * make a notebook.
  */
 @Composable
-fun BrowseTab(viewModel: NotesViewModel, contentPadding: PaddingValues, listState: LazyListState, open: (Screen) -> Unit) {
+fun BrowseTab(
+    viewModel: NotesViewModel,
+    contentPadding: PaddingValues,
+    listState: LazyListState,
+    open: (Screen) -> Unit,
+    onNewNotebook: () -> Unit,
+) {
+    val colors by viewModel.notebookColors.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
     val labels by viewModel.labels.collectAsStateWithLifecycle()
@@ -60,7 +69,7 @@ fun BrowseTab(viewModel: NotesViewModel, contentPadding: PaddingValues, listStat
         if (current == null) {
             Box(Modifier.fillMaxSize().padding(top = 96.dp), contentAlignment = Alignment.TopCenter) { LoadingIndicator() }
         } else {
-            val folders = sortFolders(current.folders.filter { it.parentPath == "" && !it.name.equals(ATTACHMENTS, ignoreCase = true) })
+            val notebooks = sortFolders(current.notebooks)
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -82,12 +91,22 @@ fun BrowseTab(viewModel: NotesViewModel, contentPadding: PaddingValues, listStat
                         BrowseRow(Icons.AutoMirrored.Outlined.Label, label, count, index, labels.size, Modifier.animateItem()) { open(Screen.Label(label)) }
                     }
                 }
-                if (folders.isNotEmpty()) {
-                    item(key = "folders") { SectionHeader(stringResource(R.string.folders), Modifier.animateItem()) }
-                    itemsIndexed(folders, key = { _, folder -> "folder:${folder.id}" }) { index, folder ->
-                        val count = current.notes.count { it.folder == folder.path || it.folder.startsWith(folder.path + "/") }
-                        BrowseRow(Icons.Outlined.Folder, folder.name, count, index, folders.size, Modifier.animateItem()) { open(Screen.Folder(folder.path)) }
-                    }
+                item(key = "notebooks") { SectionHeader(stringResource(R.string.notebooks), Modifier.animateItem()) }
+                itemsIndexed(notebooks, key = { _, notebook -> "notebook:${notebook.id}" }) { index, notebook ->
+                    val count = current.notes.count { it.notebook.equals(notebook.name, ignoreCase = true) }
+                    BrowseRow(
+                        Icons.AutoMirrored.Outlined.MenuBook, notebook.name, count, index, notebooks.size + 1, Modifier.animateItem(),
+                        iconTint = colors[notebook.name]?.let { Color(it) },
+                    ) { open(Screen.Notebook(notebook.name)) }
+                }
+                item(key = "new-notebook") {
+                    ListRow(
+                        icon = Icons.Outlined.Add,
+                        title = stringResource(R.string.new_notebook),
+                        shape = segmentShape(notebooks.size, notebooks.size + 1),
+                        onClick = onNewNotebook,
+                        modifier = Modifier.padding(horizontal = 16.dp).animateItem(),
+                    )
                 }
             }
         }
@@ -101,8 +120,9 @@ private class Place(val icon: ImageVector, val title: Int, val count: Int, val s
 private fun Library.count(infos: Map<String, NoteInfo>, test: (NoteInfo?) -> Boolean): Int = notes.count { test(infos[it.id]) }
 
 /**
- * A row in Browse: an icon, a name, how many notes, and an arrow. It keeps 16dp from the screen
- * edges itself, unless [inset] is off because it sits in a grid that already does.
+ * A row in Browse: an icon (coloured with [iconTint] if given), a name, how many notes, and an
+ * arrow. It keeps 16dp from the screen edges itself, unless [inset] is off because it sits in a
+ * grid that already does.
  */
 @Composable
 fun BrowseRow(
@@ -113,6 +133,7 @@ fun BrowseRow(
     size: Int,
     modifier: Modifier = Modifier,
     inset: Boolean = true,
+    iconTint: androidx.compose.ui.graphics.Color? = null,
     onClick: () -> Unit,
 ) {
     ListRow(
@@ -123,5 +144,6 @@ fun BrowseRow(
         onClick = onClick,
         trailing = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = if (inset) modifier.padding(horizontal = 16.dp) else modifier,
+        iconTint = iconTint,
     )
 }

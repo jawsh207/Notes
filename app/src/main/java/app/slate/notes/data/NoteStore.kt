@@ -59,8 +59,11 @@ class NoteStore(context: Context, private val tree: Uri) {
                 }
             }
         }
+        // Folio keeps deleted notes in .trash/<notebook>/; loose ones there came from this app's first version.
         val trashId = childId(rootId, TRASH)
-        val trash = trashId?.let { id -> listNotes(id, TRASH) }.orEmpty()
+        val trash = trashId?.let { id ->
+            listNotes(id, "") + children(id).filter { it.isFolder }.flatMap { listNotes(it.id, it.name) }
+        }.orEmpty()
         return Library(rootName(), rootId, notes, folders, trash, trashId)
     }
 
@@ -121,8 +124,75 @@ class NoteStore(context: Context, private val tree: Uri) {
         return copy
     }
 
-    /** Moves [note] to the trash folder (made if needed) and returns it as it is there. */
-    fun trash(note: Note): Note = move(note, ensureFolder(rootId, TRASH), TRASH)
+    /**
+     * Moves [note] to the trash as Folio does, into ".trash/<its notebook>/" (made if needed),
+     * and returns it as it is there. Its folder then names the notebook it came from.
+     */
+    fun trash(note: Note): Note {
+        val notebook = note.notebook.ifEmpty { DEFAULT_NOTEBOOK }
+        return move(note, ensureFolder(ensureFolder(rootId, TRASH), notebook), notebook)
+    }
+
+    /** One thing directly inside a folder. */
+    data class Child(val id: String, val name: String, val isFolder: Boolean)
+
+    /** Everything directly inside the folder [parentId]. */
+    fun children(parentId: String): List<Child> =
+        resolver.query(childrenUri(parentId), arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_MIME_TYPE), null, null, null)
+            ?.use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getString(0) ?: continue
+                        add(Child(id, cursor.getString(1) ?: continue, cursor.getString(2) == Document.MIME_TYPE_DIR))
+                    }
+                }
+            }.orEmpty()
+
+    /** Moves the file or folder [id] from [fromId] into [toId]. Returns false if the provider can't. */
+    fun moveChild(id: String, fromId: String, toId: String): Boolean = runCatching {
+        DocumentsContract.moveDocument(resolver, documentUri(id), documentUri(fromId), documentUri(toId)) != null
+    }.getOrDefault(false)
+
+    /** The notebook [notebookId]'s colour, from the ".config/color" file Folio keeps in it (0xAARRGGBB), if it has one. */
+    fun notebookColor(notebookId: String): Int? = runCatching {
+        val config = childId(notebookId, CONFIG) ?: return null
+        val file = childId(config, "color") ?: return null
+        parseNotebookColor(read(file))
+    }.getOrNull()
+
+    /** Gives the notebook [notebookId] a colour, written where and how Folio writes it. */
+    fun setNotebookColor(notebookId: String, color: Int) {
+        val config = ensureFolder(notebookId, CONFIG)
+        val file = childId(config, "color")
+            ?: DocumentsContract.createDocument(resolver, documentUri(config), "application/octet-stream", "color")
+                ?.let(DocumentsContract::getDocumentId)
+            ?: error("Couldn't create the colour file")
+        write(file, formatNotebookColor(color))
+    }
+
+    /** Renames the notebook folder [notebookId] to [name] and returns its new id. Every note in it gets a new id too. */
+    fun renameFolder(notebookId: String, name: String): String {
+        val uri = DocumentsContract.renameDocument(resolver, documentUri(notebookId), name) ?: return notebookId
+        return DocumentsContract.getDocumentId(uri)
+    }
+
+    /**
+     * Moves a whole notebook to the trash as Folio does: everything in it goes into
+     * ".trash/<name>/", then the emptied folder is removed. Notes clash-checked by [move]; if
+     * anything else can't be moved, the notebook folder is kept rather than deleted with it.
+     * Returns the notes as they are in the trash.
+     */
+    fun trashNotebook(notebook: Folder, notes: List<Note>): List<Note> {
+        val target = ensureFolder(ensureFolder(rootId, TRASH), notebook.name)
+        val moved = notes.filter { it.parentId == notebook.id }.map { move(it, target, notebook.name) }
+        var everything = true
+        for (child in children(notebook.id)) {
+            if (child.name == CONFIG) childId(target, CONFIG)?.let { delete(it) }
+            if (!moveChild(child.id, notebook.id, target)) everything = false
+        }
+        if (everything) delete(notebook.id)
+        return moved
+    }
 
     /**
      * Saves a picture from [input] into the "attachments" folder next to notes in [parentId],
@@ -252,6 +322,7 @@ class NoteStore(context: Context, private val tree: Uri) {
             Document.COLUMN_SIZE,
         )
         const val TRASH = ".trash"
+        const val CONFIG = ".config"
         const val MAX_DEPTH = 12
         const val MAX_WATCHED = 64
     }

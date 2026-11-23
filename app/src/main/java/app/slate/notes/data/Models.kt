@@ -21,6 +21,9 @@ data class Note(
 ) {
     /** The name shown for the note: the file name without ".md". */
     val title: String get() = titleFromFileName(name)
+
+    /** The notebook it's in: the first part of its folder ("" for a note loose at the top). */
+    val notebook: String get() = notebookOf(folder)
 }
 
 /** A folder inside the notes folder. [path] is relative to the notes folder ("Work/Ideas"). */
@@ -40,11 +43,17 @@ data class Library(
     val rootId: String,
     val notes: List<Note>,
     val folders: List<Folder>,
-    /** Notes in the trash (the hidden ".trash" folder at the top, as Obsidian uses). */
+    /** Notes in the trash (the hidden ".trash" folder at the top, laid out as Folio does). Their folder is the notebook they came from. */
     val trash: List<Note> = emptyList(),
     /** The trash folder's document id, once it exists. */
     val trashId: String? = null,
 ) {
+    /** The notebooks: folders at the top of the notes folder, as Folio shows them. */
+    val notebooks: List<Folder> get() = folders.filter { it.parentPath.isEmpty() && isNotebookFolder(it.name) }
+
+    /** The notebook called [name], matched ignoring case as on Windows and macOS. */
+    fun notebook(name: String): Folder? = notebooks.firstOrNull { it.name.equals(name, ignoreCase = true) }
+
     /** The document id of the folder at [path] ("" is the notes folder itself). */
     fun folderId(path: String): String? = if (path.isEmpty()) rootId else folders.firstOrNull { it.path == path }?.id
 }

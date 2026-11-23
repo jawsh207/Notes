@@ -105,6 +105,13 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.slate.notes.R
+import app.slate.notes.ui.notebooks.NotebookDot
+import app.slate.notes.ui.notebooks.NotebookDialog
+import app.slate.notes.ui.notebooks.MoveToNotebookSheet
+import app.slate.notes.data.sortFolders
+import app.slate.notes.data.DEFAULT_NOTEBOOK
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import app.slate.notes.data.toggleTask
 import app.slate.notes.ui.NotesViewModel
 import app.slate.notes.ui.components.Chip
@@ -199,6 +206,8 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
     var coloring by remember { mutableStateOf(false) }
     var labeling by remember { mutableStateOf(false) }
     var reminding by remember { mutableStateOf(false) }
+    var moving by remember { mutableStateOf(false) }
+    var creatingNotebook by remember { mutableStateOf(false) }
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) viewModel.addImage(session, uri)
     }
@@ -260,6 +269,7 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
                 },
                 onColor = { coloring = true },
                 onLabels = { labeling = true },
+                onMove = { moving = true },
                 onCopy = { viewModel.copy(session.note, onOpen) },
                 onShare = { shareNote(context, session.note.title, session.text?.text.orEmpty()) },
                 onDelete = {
@@ -295,6 +305,7 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
                 bodyFocus = bodyFocus,
                 onReminder = { reminding = true },
                 onLabels = { labeling = true },
+                onMove = { moving = true },
             )
         }
     }
@@ -308,6 +319,37 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
             state = { label -> if (meta.tags.any { it.equals(label, ignoreCase = true) }) ToggleableState.On else ToggleableState.Off },
             onToggle = { label, add -> viewModel.setLabel(listOf(session.note), label, add) },
             onDismiss = { labeling = false },
+        )
+    }
+    if (moving) {
+        val library by viewModel.library.collectAsStateWithLifecycle()
+        val colors by viewModel.notebookColors.collectAsStateWithLifecycle()
+        MoveToNotebookSheet(
+            notebooks = sortFolders(library?.notebooks.orEmpty()),
+            colors = colors,
+            current = session.note.notebook,
+            onPick = { notebook ->
+                moving = false
+                viewModel.moveToNotebook(listOf(session.note), notebook)
+            },
+            onNew = {
+                moving = false
+                creatingNotebook = true
+            },
+            onDismiss = { moving = false },
+        )
+    }
+    if (creatingNotebook) {
+        NotebookDialog(
+            title = stringResource(R.string.new_notebook),
+            confirmLabel = stringResource(R.string.create),
+            initialName = "",
+            initialColor = null,
+            onConfirm = { name, color ->
+                viewModel.createNotebook(name, color) { made -> viewModel.moveToNotebook(listOf(session.note), made) }
+                    .also { made -> if (made) creatingNotebook = false }
+            },
+            onDismiss = { creatingNotebook = false },
         )
     }
     if (reminding) {
@@ -327,7 +369,7 @@ private fun bounceIn() = scaleIn(spring(Spring.DampingRatioMediumBouncy, Spring.
 
 /**
  * Keep's bottom bar: add a picture or switch tick boxes, the colour palette, when it was last
- * edited, and a menu with labels, copy, share, delete (and, for checklists, untick all and
+ * edited, and a menu with move to a notebook, labels, copy, share, delete (and, for checklists, untick all and
  * delete ticked items). It rides above the keyboard.
  */
 @Composable
@@ -338,6 +380,7 @@ private fun BottomTools(
     onToggleList: () -> Unit,
     onColor: () -> Unit,
     onLabels: () -> Unit,
+    onMove: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
@@ -377,6 +420,7 @@ private fun BottomTools(
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.more_options)) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                MenuItem(Icons.AutoMirrored.Outlined.DriveFileMove, stringResource(R.string.move_to_notebook)) { menu = false; onMove() }
                 MenuItem(Icons.AutoMirrored.Outlined.Label, stringResource(R.string.labels)) { menu = false; onLabels() }
                 if (session.listMode) {
                     MenuItem(Icons.Outlined.RemoveDone, stringResource(R.string.untick_all)) { menu = false; session.untickAll() }
@@ -410,6 +454,7 @@ private fun NoteBody(
     bodyFocus: FocusRequester,
     onReminder: () -> Unit,
     onLabels: () -> Unit,
+    onMove: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val motion = MaterialTheme.motionScheme
@@ -484,8 +529,19 @@ private fun NoteBody(
                     }
                 },
             )
-            if (session.note.folder.isNotEmpty()) {
-                Text(session.note.folder, style = MaterialTheme.typography.labelLarge, color = scheme.primary, modifier = Modifier.padding(top = 4.dp))
+            // The notebook it's in, under the title; tapping moves it to another.
+            val colors by viewModel.notebookColors.collectAsStateWithLifecycle()
+            Row(
+                Modifier.padding(top = 6.dp).clip(CircleShape).clickable(onClick = onMove).padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NotebookDot(colors[session.note.notebook])
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    session.note.notebook.ifEmpty { DEFAULT_NOTEBOOK },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = scheme.onSurfaceVariant,
+                )
             }
             Spacer(Modifier.height(16.dp))
             AnimatedContent(

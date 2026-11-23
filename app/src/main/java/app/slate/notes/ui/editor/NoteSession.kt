@@ -442,6 +442,23 @@ class NoteSession(
         }
     }
 
+    /**
+     * Moves the note into the notebook folder [notebookId] (called [notebook]), saving first.
+     * Its id changes; the screen follows it through [note].
+     */
+    suspend fun moveTo(notebookId: String, notebook: String) {
+        saveJob?.cancel()
+        save()
+        lock.withLock {
+            if (gone) return
+            val current = note
+            val moved = runCatching { withContext(Dispatchers.IO) { store.move(current, notebookId, notebook) } }.getOrNull() ?: return
+            note = moved
+            savedModified = withContext(Dispatchers.IO) { store.modified(moved.id) } ?: savedModified
+            onSaved(moved, saved)
+        }
+    }
+
     /** Whether nothing at all has been put in the note. */
     private fun isEmpty(): Boolean {
         val rest = text?.text ?: return false

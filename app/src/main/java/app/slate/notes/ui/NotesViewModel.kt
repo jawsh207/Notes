@@ -7,6 +7,9 @@ import android.webkit.MimeTypeMap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.slate.notes.data.Library
+import app.slate.notes.data.cleanNotebookName
+import app.slate.notes.data.ATTACHMENTS
+import app.slate.notes.data.DEFAULT_NOTEBOOK
 import app.slate.notes.data.Note
 import app.slate.notes.data.NoteInfo
 import app.slate.notes.data.NoteMeta
@@ -156,6 +159,13 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     /** A note to open that was asked for from outside the app (a reminder notification), by id. */
     val openRequest: StateFlow<String?> = _openRequest.asStateFlow()
 
+    private val _notebookColors = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    /** Each notebook's colour (0xAARRGGBB) by notebook name, for those that have one. */
+    val notebookColors: StateFlow<Map<String, Int>> = _notebookColors.asStateFlow()
+
+    // Which notebooks' colours were last read, so they're only read again when that changes.
+    private var colorsReadFor: Set<String>? = null
     private var store: NoteStore? = null
     private val foreground = MutableStateFlow(false)
     private val pokes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -170,6 +180,8 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 store = null
                 _library.value = null
                 _infos.value = emptyMap()
+                _notebookColors.value = emptyMap()
+                colorsReadFor = null
                 readStamps.clear()
                 if (uri == null) {
                     _folder.value = FolderState.Needed(lost = false)
@@ -202,6 +214,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             _library.value?.let { library -> watched.value = listOf(library.rootId) + library.folders.map { it.id } }
         }
         if (rescan(opened)) {
+            tidyLooseNotes(opened)
             welcome(opened)
             watchAll()
         }
@@ -212,6 +225,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 foreground.flatMapLatest { if (it) ticks(SCAN_EVERY_MS) else emptyFlow() },
             ).conflate().collect {
                 if (!rescan(opened)) return@collect
+                tidyLooseNotes(opened)
                 watchAll()
                 _session.value?.checkDisk()
             }
@@ -224,7 +238,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * The first time this phone opens a folder, makes the welcome note at its top, whether or not
+     * The first time this phone opens a folder, makes the welcome note in Unsorted, whether or not
      * it already has notes. If the folder already holds one (made on another phone that shares
      * it), no second copy is added.
      */
@@ -232,13 +246,54 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         if (settings.welcomed.first()) return
         val library = _library.value ?: return
         settings.setWelcomed()
-        if (library.notes.any { it.folder.isEmpty() && it.title.equals(WELCOME_TITLE, ignoreCase = true) }) return
+        if (library.notes.any { it.title.equals(WELCOME_TITLE, ignoreCase = true) }) return
         val note = runCatching {
-            withContext(Dispatchers.IO) { opened.create(opened.rootId, "", WELCOME_TITLE, WELCOME_TEXT) }
+            withContext(Dispatchers.IO) {
+                opened.create(opened.ensureFolder(opened.rootId, DEFAULT_NOTEBOOK), DEFAULT_NOTEBOOK, WELCOME_TITLE, WELCOME_TEXT)
+            }
         }.getOrNull() ?: return
         addToLibrary(note)
         _infos.value = _infos.value + (note.id to noteInfoOf(WELCOME_TEXT, note.title))
         poke()
+    }
+
+    /**
+     * Moves notes left loose at the top of the folder (made by an older version, or synced in
+     * from another app) into the Unsorted notebook, because Folio only shows notes that are in a
+     * notebook. Pictures in a loose "attachments" folder go with them, so their links still work.
+     * The open note is left until it's closed.
+     */
+    private suspend fun tidyLooseNotes(opened: NoteStore) {
+        val library = _library.value ?: return
+        val session = _session.value
+        val loose = library.notes.filter { it.folder.isEmpty() && it.id != session?.note?.id && it.id != session?.openedAs }
+        if (loose.isEmpty()) return
+        val moved = runCatching {
+            withContext(Dispatchers.IO) {
+                val target = opened.ensureFolder(opened.rootId, DEFAULT_NOTEBOOK)
+                val result = loose.map { it.id to opened.move(it, target, DEFAULT_NOTEBOOK) }
+                opened.childId(opened.rootId, ATTACHMENTS)?.let { pictures ->
+                    val into = opened.ensureFolder(target, ATTACHMENTS)
+                    val taken = opened.namesIn(into).mapTo(HashSet()) { it.lowercase() }
+                    opened.children(pictures).filter { !it.isFolder && it.name.lowercase() !in taken }.forEach { opened.moveChild(it.id, pictures, into) }
+                    if (opened.children(pictures).isEmpty()) opened.delete(pictures)
+                }
+                result
+            }
+        }.getOrNull() ?: return
+        val ids = moved.mapTo(HashSet()) { it.first }
+        _library.value = _library.value?.let { current -> current.copy(notes = current.notes.filter { it.id !in ids } + moved.map { it.second }) }
+        poke()
+    }
+
+    /** Reads each notebook's colour (Folio's ".config/color") when the set of notebooks changes. */
+    private suspend fun readNotebookColors(opened: NoteStore, library: Library) {
+        val notebooks = library.notebooks
+        if (notebooks.map { it.id }.toSet() == colorsReadFor) return
+        colorsReadFor = notebooks.map { it.id }.toSet()
+        _notebookColors.value = withContext(Dispatchers.IO) {
+            notebooks.mapNotNull { notebook -> opened.notebookColor(notebook.id)?.let { notebook.name to it } }.toMap()
+        }
     }
 
     private fun ticks(every: Long): Flow<Unit> = flow {
@@ -261,6 +316,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (scanned != _library.value) _library.value = scanned
         readInfos(opened, scanned)
+        readNotebookColors(opened, scanned)
         emptyOldTrash(opened, scanned)
         syncReminders()
         true
@@ -295,9 +351,9 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         val log = settings.trashLog.first()
         val expired = log.filter { trashExpired(it.trashedAt, now) }
         if (expired.isEmpty()) return
-        val names = expired.mapTo(HashSet()) { it.name }
         withContext(Dispatchers.IO) {
-            library.trash.filter { it.name in names }.forEach { runCatching { opened.delete(it.id) } }
+            library.trash.filter { note -> expired.any { it.name == note.name && it.folder == note.folder } }
+                .forEach { runCatching { opened.delete(it.id) } }
         }
         settings.editTrashLog { entries -> entries.filter { it !in expired } }
     }
@@ -366,18 +422,23 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Makes a new note in the folder at [folderPath] and opens it: an empty note, or with [list]
-     * a checklist with one empty item. [label] is given to it when made from a label's page.
-     * Calls [onMade] with its id.
+     * Makes a new note in [notebook] (Unsorted when none is given, made if it isn't there) and
+     * opens it: an empty note, or with [list] a checklist with one empty item. [label] is given to
+     * it when made from a label's page. Calls [onMade] with its id.
      */
-    fun createNote(folderPath: String, list: Boolean = false, label: String? = null, onMade: (String) -> Unit) {
+    fun createNote(notebook: String?, list: Boolean = false, label: String? = null, onMade: (String) -> Unit) {
         val opened = store ?: return
-        val parentId = _library.value?.folderId(folderPath) ?: opened.rootId
+        val name = notebook?.takeIf { it.isNotEmpty() } ?: DEFAULT_NOTEBOOK
         val front = label?.let { writeMeta("", NoteMeta(tags = listOf(it))) }.orEmpty()
         val text = front + if (list) "- [ ] \n" else ""
         viewModelScope.launch {
-            val note = runCatching { withContext(Dispatchers.IO) { opened.create(parentId, folderPath, UNTITLED, text) } }.getOrNull()
-                ?: return@launch
+            val note = runCatching {
+                withContext(Dispatchers.IO) {
+                    val folder = _library.value?.notebook(name)
+                    val parentId = folder?.id ?: opened.ensureFolder(opened.rootId, name)
+                    opened.create(parentId, folder?.name ?: name, UNTITLED, text)
+                }
+            }.getOrNull() ?: return@launch
             addToLibrary(note)
             _infos.value = _infos.value + (note.id to noteInfoOf(text, note.title))
             closeSession()
@@ -395,12 +456,101 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         _library.value = _library.value?.let { library -> library.copy(notes = library.notes.filter { it.id != note.id } + note) }
     }
 
-    /** Makes a folder called [name] inside the one at [parentPath]. */
-    fun createFolder(parentPath: String, name: String) {
-        val opened = store ?: return
-        val parentId = _library.value?.folderId(parentPath) ?: return
+    /**
+     * Makes a notebook called [name] with [color] (written as Folio does), then calls [onMade]
+     * with its name. Returns false if the name can't be used or is taken.
+     */
+    fun createNotebook(name: String, color: Int?, onMade: (String) -> Unit = {}): Boolean {
+        val opened = store ?: return false
+        val clean = cleanNotebookName(name) ?: return false
+        if (_library.value?.notebook(clean) != null) return false
+        if (color != null) _notebookColors.value = _notebookColors.value + (clean to color)
         viewModelScope.launch {
-            runCatching { withContext(Dispatchers.IO) { opened.createFolder(parentId, name) } }
+            val made = runCatching {
+                withContext(Dispatchers.IO) {
+                    val id = opened.ensureFolder(opened.rootId, clean)
+                    if (color != null) opened.setNotebookColor(id, color)
+                }
+            }.isSuccess
+            colorsReadFor = null
+            poke()
+            if (made) onMade(clean)
+        }
+        return true
+    }
+
+    /**
+     * Renames the notebook [old] to [new] and gives it [color]. Every note in it gets a new id, so
+     * a note open from it is closed first. Returns false if the new name can't be used or is taken.
+     */
+    fun renameNotebook(old: String, new: String, color: Int): Boolean {
+        val opened = store ?: return false
+        val clean = cleanNotebookName(new) ?: return false
+        val folder = _library.value?.notebook(old) ?: return false
+        if (_library.value?.notebook(clean)?.takeIf { it.id != folder.id } != null) return false
+        _notebookColors.value = _notebookColors.value - folder.name + (clean to color)
+        viewModelScope.launch {
+            if (clean != folder.name && _session.value?.note?.notebook.equals(folder.name, ignoreCase = true)) closeSession()
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val id = if (clean == folder.name) folder.id else opened.renameFolder(folder.id, clean)
+                    opened.setNotebookColor(id, color)
+                }
+            }
+            colorsReadFor = null
+            poke()
+        }
+        return true
+    }
+
+    /** Changes a notebook's colour. */
+    fun setNotebookColor(name: String, color: Int) {
+        val opened = store ?: return
+        val folder = _library.value?.notebook(name) ?: return
+        _notebookColors.value = _notebookColors.value + (folder.name to color)
+        viewModelScope.launch {
+            runCatching { withContext(Dispatchers.IO) { opened.setNotebookColor(folder.id, color) } }
+        }
+    }
+
+    /**
+     * Moves a whole notebook to the trash as Folio does: its notes go to ".trash/<name>/", from
+     * where each can be put back (into a notebook of that name, made again if needed).
+     */
+    fun deleteNotebook(name: String) {
+        val opened = store ?: return
+        val library = _library.value ?: return
+        val folder = library.notebook(name) ?: return
+        viewModelScope.launch {
+            if (_session.value?.note?.notebook.equals(folder.name, ignoreCase = true)) closeSession()
+            val inside = library.notes.filter { it.folder == folder.name }
+            val moved = runCatching { withContext(Dispatchers.IO) { opened.trashNotebook(folder, inside) } }.getOrNull().orEmpty()
+            val now = System.currentTimeMillis()
+            settings.editTrashLog { log -> log + moved.map { TrashEntry(it.name, it.folder, now) } }
+            colorsReadFor = null
+            poke()
+        }
+    }
+
+    /** Moves [notes] into [notebook] (made if it isn't there). The open note keeps going under its new id. */
+    fun moveToNotebook(notes: List<Note>, notebook: String) {
+        val opened = store ?: return
+        val clean = cleanNotebookName(notebook) ?: return
+        viewModelScope.launch {
+            val folder = _library.value?.notebook(clean)
+            val targetId = folder?.id ?: runCatching { withContext(Dispatchers.IO) { opened.ensureFolder(opened.rootId, clean) } }.getOrNull() ?: return@launch
+            val targetName = folder?.name ?: clean
+            for (note in notes) {
+                if (note.folder == targetName) continue
+                val session = _session.value?.takeIf { it.note.id == note.id || it.openedAs == note.id }
+                if (session != null) {
+                    session.moveTo(targetId, targetName)
+                    continue
+                }
+                val moved = runCatching { withContext(Dispatchers.IO) { opened.move(note, targetId, targetName) } }.getOrNull() ?: continue
+                _library.value = _library.value?.let { library -> library.copy(notes = library.notes.filter { it.id != note.id } + moved) }
+                _infos.value[note.id]?.let { info -> _infos.value = _infos.value - note.id + (moved.id to info) }
+            }
             poke()
         }
     }
@@ -533,8 +683,8 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             }
             if (moved.isEmpty()) return@launch
             settings.editTrashLog { log ->
-                val names = moved.mapTo(HashSet()) { it.second.name }
-                log.filter { it.name !in names } + moved.map { (from, to) -> TrashEntry(to.name, from.folder, now) }
+                log.filter { entry -> moved.none { it.second.name == entry.name && it.second.folder == entry.folder } } +
+                    moved.map { (_, to) -> TrashEntry(to.name, to.folder, now) }
             }
             val movedIds = moved.mapTo(HashSet()) { it.first.id }
             _library.value = _library.value?.let { library ->
@@ -547,20 +697,31 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Puts [notes] back from the trash into the folders they came from (or the top folder, if that isn't known or is gone). */
+    /**
+     * Puts [notes] back from the trash into the notebooks they came from (their folder in the
+     * trash says which), making the notebook again if it's gone. Notes trashed by this app's
+     * first version, loose in the trash, go to Unsorted.
+     */
     fun restore(notes: List<Note>) {
         val opened = store ?: return
         viewModelScope.launch {
-            val log = settings.trashLog.first()
-            val restored = mutableListOf<String>()
+            val restored = mutableListOf<Note>()
             for (note in notes) {
-                val origin = log.firstOrNull { it.name == note.name }?.folder.orEmpty()
-                val library = _library.value
-                val targetId = library?.folderId(origin)
-                val (id, path) = if (targetId != null) targetId to origin else opened.rootId to ""
-                if (runCatching { withContext(Dispatchers.IO) { opened.move(note, id, path) } }.isSuccess) restored += note.name
+                val name = note.folder.ifEmpty { DEFAULT_NOTEBOOK }
+                val done = runCatching {
+                    withContext(Dispatchers.IO) {
+                        val folder = _library.value?.notebook(name)
+                        val id = folder?.id ?: opened.ensureFolder(opened.rootId, name)
+                        opened.move(note, id, folder?.name ?: name)
+                        // Folio removes a notebook's trash folder once it's empty; so does this.
+                        if (note.parentId != _library.value?.trashId && opened.children(note.parentId).none { !it.name.startsWith(".") }) {
+                            opened.delete(note.parentId)
+                        }
+                    }
+                }.isSuccess
+                if (done) restored += note
             }
-            settings.editTrashLog { entries -> entries.filter { it.name !in restored } }
+            settings.editTrashLog { entries -> entries.filter { entry -> restored.none { it.name == entry.name && it.folder == entry.folder } } }
             poke()
         }
     }
@@ -570,8 +731,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         val opened = store ?: return
         viewModelScope.launch {
             withContext(Dispatchers.IO) { notes.forEach { runCatching { opened.delete(it.id) } } }
-            val names = notes.mapTo(HashSet()) { it.name }
-            settings.editTrashLog { entries -> entries.filter { it.name !in names } }
+            settings.editTrashLog { entries -> entries.filter { entry -> notes.none { it.name == entry.name && it.folder == entry.folder } } }
             val ids = notes.mapTo(HashSet()) { it.id }
             _library.value = _library.value?.let { library -> library.copy(trash = library.trash.filter { it.id !in ids }) }
             poke()
