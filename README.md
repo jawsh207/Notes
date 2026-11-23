@@ -9,8 +9,8 @@ app reads and writes plain Markdown (`.md`) files in a folder on your phone that
 - **Live updates.** When a note changes on another device and syncs into the folder, or another
   app edits it, the app picks it up by itself, including the note you're looking at. If you were
   typing in it at the time, it asks which version to keep instead of overwriting either.
-- **Google Keep's features.** Checklists, pinned notes, colours, labels, archive, trash,
-  reminders and pictures, kept inside the files themselves.
+- **Google Keep's best bits.** Checklists, pinned notes, colours, reminders, pictures and a
+  trash, kept inside the files themselves.
 - **Modern look.** Jetpack Compose and Material 3 Expressive: wallpaper colours, Google Sans
   Flex, a grid of cards, spring animations. It shares its look with
   [Contacts](https://github.com/jawsh207/Contacts) and [Dialtone](https://github.com/jawsh207/dialtone).
@@ -28,13 +28,15 @@ It works like Google Keep:
 - **Notebooks:** every note is in a notebook, a folder at the top of your notes folder, laid out
   the way [Folio](https://flathub.org/apps/com.toolstack.Folio) keeps them (see below). Notes
   that aren't in one, and notes left loose at the top by another app, go to **Unsorted**.
-- **Notes tab:** every note that isn't archived, as a grid of cards (or a list; the button by the
-  search bar switches). Pinned notes sit at the top. Chips across the top show one notebook at a
-  time and make new ones. Pull down to look at the folder again right away.
-- **Browse tab:** Reminders, Archive and Trash, every label, and your notebooks in their colours.
-  A notebook's page shows its notes and can rename it, change its colour or delete it.
+- **Notes tab:** every note, as a grid of cards (or a list; the button by the search bar
+  switches). Pinned notes sit at the top. Chips across the top show one notebook at a time and
+  make new ones. Pull down to look at the folder again right away.
+- **Lists tab:** only the checklists, with the same notebook chips. Its + makes a list straight
+  away.
+- **Organize tab:** your notebooks in their colours, New notebook, Reminders and the Trash. A
+  notebook's page shows its notes and can rename it, change its colour or delete it.
 - **New note or list:** the + button opens into New note and New list (and New notebook on
-  Browse). New notes go into the notebook being shown, or Unsorted.
+  Organize). New notes go into the notebook being shown, or Unsorted.
 - **Moving notes:** tap the notebook under a note's title, use Move to notebook in its menu, or
   pick several notes and move them together.
 - **Writing:** a note saves itself a moment after you stop typing, and when you leave it or
@@ -43,13 +45,13 @@ It works like Google Keep:
 - **Checklists:** tick boxes, Enter for a new item, backspace in an empty item to remove it, and
   indent buttons. Ticked items fold away at the bottom (this can be turned off in Settings).
   "Show tick boxes" turns any note into a checklist and "Hide tick boxes" back.
-- **Pin, colour, labels, archive, reminders:** from the note's top and bottom bars, or for several
-  notes at once after a long press on a card.
+- **Pin, colour, reminders:** from the note's top and bottom bars, or for several notes at once
+  after a long press on a card.
 - **Pictures:** Add image copies a picture into an `attachments` folder next to the note and puts
   it at the top of the note. A long press on it takes it out of the note.
 - **Formatted view:** the eye button shows headings, lists, checkboxes, quotes, code, pictures and
   links. Ticking a checkbox there writes the tick into the file (`- [ ]` becomes `- [x]`).
-- **Search:** finds notes containing every word typed, in the title, text or labels, ignoring case
+- **Search:** finds notes containing every word typed, in the title or text, ignoring case
   and accents.
 - **Trash:** deleting moves a note to `.trash/<notebook>/`, as Folio does, with Undo. Deleting
   a notebook moves it there whole. The Trash page puts notes back in their notebook or deletes
@@ -67,7 +69,7 @@ the folder (with Syncthing, say) and point Folio at it:
   the notebook.
 - **Trash:** both apps put deleted notes in `.trash/<notebook>/`. In Folio's preferences, set
   the trash location to the notes folder too, so they share one trash.
-- Folio doesn't read front matter, so a note's pin, colour, labels or reminder show there as a
+- Folio doesn't read front matter, so a note's pin, colour or reminder show there as a
   few lines of text at the top. Leave them be and they keep working here.
 
 ### What's in the files
@@ -75,15 +77,14 @@ the folder (with Syncthing, say) and point Folio at it:
 Files ending in `.md` or `.markdown` count as notes, read and written as UTF-8. Hidden folders
 (names starting with a dot, such as `.git`, `.obsidian`, `.stfolder` or a notebook's `.config`)
 are skipped. A checklist
-is a note whose lines are all Markdown tasks (`- [ ] milk`). Pins, colours, labels, archiving
-and reminders are kept in the YAML front matter at the top of the file, which Obsidian and
+is a note whose lines are all Markdown tasks (`- [ ] milk`). Pins, colours and reminders
+are kept in the YAML front matter at the top of the file, which Obsidian and
 other Markdown tools understand:
 
 ```markdown
 ---
 pinned: true
 color: yellow
-tags: [shopping, home]
 reminder: 2026-11-20T18:00
 ---
 ![](attachments/image-20261118-031200.jpg)
@@ -92,7 +93,9 @@ reminder: 2026-11-20T18:00
 - [x] eggs
 ```
 
-The app only changes those keys and leaves anything else in the front matter as it was. A note
+The app only changes those keys and leaves anything else in the front matter as it was,
+including labels (`tags`) or an `archived` mark from earlier versions or other tools, which it
+no longer uses. A note
 with none of them has no front matter added.
 
 Reminders ring through Android alarms, which the app sets whenever it reads the folder, so a
