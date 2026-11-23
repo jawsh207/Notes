@@ -21,7 +21,6 @@ import app.slate.notes.data.TrashEntry
 import app.slate.notes.data.UNTITLED
 import app.slate.notes.data.WELCOME_TEXT
 import app.slate.notes.data.WELCOME_TITLE
-import app.slate.notes.data.cleanLabel
 import app.slate.notes.data.noteInfoOf
 import app.slate.notes.data.readMeta
 import app.slate.notes.data.splitFrontMatter
@@ -42,7 +41,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
@@ -73,12 +71,6 @@ sealed interface FolderState {
 enum class UndoKind {
     /** Notes moved to the trash. */
     Trashed,
-
-    /** Notes archived. */
-    Archived,
-
-    /** Notes taken out of the archive. */
-    Unarchived,
 }
 
 /** Something just done that the Undo bar offers to take back. [title] is set when it was one note. */
@@ -91,7 +83,7 @@ class UndoAction(val kind: UndoKind, val count: Int, val title: String?, val und
  * seconds while the app is on screen (not every storage provider says), so notes edited on
  * another device and synced into the folder show up by themselves. Texts are read once and then
  * again only when a file's date or size changes; what the lists need from each (pin, colour,
- * labels, preview, checklist, picture) is worked out then.
+ * preview, checklist, picture) is worked out then.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotesViewModel(application: Application) : AndroidViewModel(application) {
@@ -114,15 +106,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     /** What each note's text says, by note id. Fills in shortly after the list appears. */
     val infos: StateFlow<Map<String, NoteInfo>> = _infos.asStateFlow()
-
-    /**
-     * Every label used by a note outside the trash, A to Z. Notes in the trash don't count, so a
-     * label taken off every note goes away even if a trashed note still has it.
-     */
-    val labels: StateFlow<List<String>> = combine(_library, _infos) { library, infos ->
-        val collator = Collator.getInstance().apply { strength = Collator.SECONDARY }
-        library?.notes.orEmpty().flatMap { infos[it.id]?.meta?.tags.orEmpty() }.distinctBy { it.lowercase() }.sortedWith(collator)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** How lists are sorted. */
     val sortOrder: StateFlow<SortOrder> = settings.sortOrder.stateIn(viewModelScope, SharingStarted.Eagerly, SortOrder.Modified)
@@ -423,14 +406,13 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Makes a new note in [notebook] (Unsorted when none is given, made if it isn't there) and
-     * opens it: an empty note, or with [list] a checklist with one empty item. [label] is given to
-     * it when made from a label's page. Calls [onMade] with its id.
+     * opens it: an empty note, or with [list] a checklist with one empty item. Calls [onMade]
+     * with its id.
      */
-    fun createNote(notebook: String?, list: Boolean = false, label: String? = null, onMade: (String) -> Unit) {
+    fun createNote(notebook: String?, list: Boolean = false, onMade: (String) -> Unit) {
         val opened = store ?: return
         val name = notebook?.takeIf { it.isNotEmpty() } ?: DEFAULT_NOTEBOOK
-        val front = label?.let { writeMeta("", NoteMeta(tags = listOf(it))) }.orEmpty()
-        val text = front + if (list) "- [ ] \n" else ""
+        val text = if (list) "- [ ] \n" else ""
         viewModelScope.launch {
             val note = runCatching {
                 withContext(Dispatchers.IO) {
@@ -596,7 +578,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Changes the front matter of [notes] (pin, colour, labels, archive, reminder). The open note
+     * Changes the front matter of [notes] (pin, colour, reminder). The open note
      * goes through its session so its unsaved typing isn't lost; others are read, changed and
      * written straight away.
      */
@@ -626,44 +608,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Pins or unpins [notes]. */
     fun setPinned(notes: List<Note>, pinned: Boolean) = updateMeta(notes) { it.copy(pinned = pinned) }
-
-    /** Archives [notes] (or brings them back), offering Undo. Pinned notes lose their pin when archived, as in Keep. */
-    fun setArchived(notes: List<Note>, archived: Boolean) {
-        updateMeta(notes) { it.copy(archived = archived, pinned = if (archived) false else it.pinned) }
-        val kind = if (archived) UndoKind.Archived else UndoKind.Unarchived
-        _undo.value = UndoAction(kind, notes.size, notes.singleOrNull()?.title) {
-            // The ids may have changed if a note was renamed meanwhile; match by what's in the list now.
-            val ids = notes.mapTo(HashSet()) { it.id }
-            updateMeta(_library.value?.notes.orEmpty().filter { it.id in ids }) { it.copy(archived = !archived) }
-        }
-    }
-
-    /** Adds the label [label] to all of [notes], or with [add] false takes it off them. */
-    fun setLabel(notes: List<Note>, label: String, add: Boolean) {
-        val clean = cleanLabel(label)
-        if (clean.isEmpty()) return
-        updateMeta(notes) { meta ->
-            val without = meta.tags.filterNot { it.equals(clean, ignoreCase = true) }
-            meta.copy(tags = if (add) without + clean else without)
-        }
-    }
-
-    /** Renames a label on every note that has it. */
-    fun renameLabel(old: String, new: String) {
-        val clean = cleanLabel(new)
-        if (clean.isEmpty()) return
-        updateMeta(notesWithLabel(old)) { meta ->
-            meta.copy(tags = meta.tags.map { if (it.equals(old, ignoreCase = true)) clean else it }.distinctBy { it.lowercase() })
-        }
-    }
-
-    /** Takes a label off every note that has it. The notes themselves stay. */
-    fun deleteLabel(label: String) {
-        updateMeta(notesWithLabel(label)) { meta -> meta.copy(tags = meta.tags.filterNot { it.equals(label, ignoreCase = true) }) }
-    }
-
-    private fun notesWithLabel(label: String): List<Note> =
-        _library.value?.notes.orEmpty().filter { note -> _infos.value[note.id]?.meta?.tags?.any { it.equals(label, ignoreCase = true) } == true }
 
     /** Moves [notes] to the trash, offering Undo. A note that's open is closed first (without its empty-note clean-up). */
     fun trash(notes: List<Note>) {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -25,9 +26,10 @@ import app.slate.notes.ui.components.EmptyState
 import app.slate.notes.ui.notebooks.NotebookChips
 
 /**
- * The Notes tab: every note that isn't archived, as cards with the pinned ones first. A row of
- * notebook chips across the top shows one notebook at a time ([notebook], null for all of
- * them) and makes new ones. Pull down to look at the folder again straight away.
+ * The Notes tab, and with [listsOnly] the Lists tab: every note (or every checklist) as cards,
+ * pinned ones first. A row of notebook chips across the top shows one notebook at a time
+ * ([notebook], null for all of them) and makes new ones. Pull down to look at the folder again
+ * straight away.
  */
 @Composable
 fun NotesTab(
@@ -39,6 +41,7 @@ fun NotesTab(
     onNotebookChange: (String?) -> Unit,
     onNewNotebook: () -> Unit,
     onOpen: (String) -> Unit,
+    listsOnly: Boolean = false,
 ) {
     val library by viewModel.library.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
@@ -52,7 +55,7 @@ fun NotesTab(
         if (notebook != null && current != null && current.notebook(notebook) == null) onNotebookChange(null)
     }
     val notes = current?.notes.orEmpty().filter { note ->
-        infos[note.id]?.meta?.archived != true && (notebook == null || note.notebook.equals(notebook, ignoreCase = true))
+        (!listsOnly || infos[note.id]?.checklist != null) && (notebook == null || note.notebook.equals(notebook, ignoreCase = true))
     }
     LaunchedEffect(notes) { selection.retain(notes.mapTo(HashSet()) { it.id }) }
 
@@ -82,16 +85,26 @@ fun NotesTab(
                 if (notes.isEmpty()) {
                     item(key = "empty", span = StaggeredGridItemSpan.FullLine) {
                         EmptyState(
-                            icon = Icons.Outlined.Lightbulb,
-                            title = stringResource(if (notebook == null) R.string.no_notes_title else R.string.empty_notebook_title),
-                            body = if (notebook == null) stringResource(R.string.no_notes_body, current.rootName) else stringResource(R.string.empty_notebook_body),
+                            icon = if (listsOnly) Icons.Outlined.Checklist else Icons.Outlined.Lightbulb,
+                            title = stringResource(
+                                when {
+                                    listsOnly -> R.string.no_lists_title
+                                    notebook == null -> R.string.no_notes_title
+                                    else -> R.string.empty_notebook_title
+                                },
+                            ),
+                            body = when {
+                                listsOnly -> stringResource(R.string.no_lists_body)
+                                notebook == null -> stringResource(R.string.no_notes_body, current.rootName)
+                                else -> stringResource(R.string.empty_notebook_body)
+                            },
                             modifier = Modifier.padding(top = 48.dp).animateItem(),
                         )
                     }
                 }
                 noteCards(
                     notes, infos, viewModel.store(), order, inGrid, showFolder = notebook == null, selection = selection,
-                    onOpen = { onOpen(it.id) }, keyPrefix = "all",
+                    onOpen = { onOpen(it.id) }, keyPrefix = if (listsOnly) "lists" else "all",
                 )
             }
         }

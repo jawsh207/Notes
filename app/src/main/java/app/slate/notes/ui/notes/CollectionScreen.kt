@@ -33,9 +33,9 @@ import app.slate.notes.ui.components.BackTopBar
 import app.slate.notes.ui.components.EmptyState
 
 /**
- * A page of notes picked out by [filter]: a label's notes, the archive, or notes with
- * reminders. Same cards and picking as the Notes tab; [actions] adds buttons to its top bar
- * and [fab] a button at the bottom.
+ * A page of notes picked out by [filter], such as the notes with reminders. Same cards and
+ * picking as the Notes tab; [actions] adds buttons to its top bar and [fab] a button at the
+ * bottom.
  */
 @Composable
 fun CollectionScreen(

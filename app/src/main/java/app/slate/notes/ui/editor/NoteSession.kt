@@ -44,7 +44,7 @@ data class EditItem(val key: Long, val text: TextFieldValue, val checked: Boolea
  * up with the file when it changes underneath (synced in from another device).
  *
  * The file is held in three parts, which always join back into exactly the file: the front
- * matter (pin, colour, labels, archive, reminder; never shown as text), the pictures at the top
+ * matter (pin, colour, reminder; never shown as text), the pictures at the top
  * (shown as a strip), and the rest, which is what's typed in. When the rest is a checklist it's
  * edited as rows instead, and written back as Markdown tasks.
  *
@@ -71,7 +71,7 @@ class NoteSession(
     var text by mutableStateOf<TextFieldValue?>(null)
         private set
 
-    /** Pin, colour, labels, archive and reminder. */
+    /** Pin, colour and reminder (plus any labels or archive mark the file already had, kept as they are). */
     var meta by mutableStateOf(NoteMeta())
         private set
 
@@ -267,7 +267,7 @@ class NoteSession(
         scheduleSave()
     }
 
-    /** Changes the pin, colour, labels, archive or reminder. Saved straight away. */
+    /** Changes the pin, colour or reminder. Saved straight away. */
     fun updateMeta(change: (NoteMeta) -> NoteMeta) {
         if (text == null) return
         val updated = change(meta)

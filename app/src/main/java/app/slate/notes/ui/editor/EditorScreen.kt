@@ -46,12 +46,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.AddAlert
 import androidx.compose.material.icons.outlined.AddBox
 import androidx.compose.material.icons.outlined.Alarm
-import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -62,7 +60,6 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.RemoveDone
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PushPin
@@ -96,7 +93,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -117,7 +113,6 @@ import app.slate.notes.ui.NotesViewModel
 import app.slate.notes.ui.components.Chip
 import app.slate.notes.ui.components.ColorSheet
 import app.slate.notes.ui.components.EmptyState
-import app.slate.notes.ui.components.LabelDialog
 import app.slate.notes.ui.components.NoteImage
 import app.slate.notes.ui.components.ReminderDialog
 import app.slate.notes.ui.components.reminderLabel
@@ -129,7 +124,7 @@ import kotlinx.coroutines.launch
 
 /**
  * One note, laid out as in Google Keep: pictures across the top, the title, the text (or a
- * checklist), its reminder and labels as chips, and a bar along the bottom to add pictures or
+ * checklist), its reminder as a chip, and a bar along the bottom to add pictures or
  * tick boxes, change the colour, and more. The whole screen takes the note's colour.
  *
  * The title is the file name; the text is the file. Typing saves itself a moment after you
@@ -196,7 +191,6 @@ private fun BarRow(color: Color = MaterialTheme.colorScheme.background, content:
 private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -> Unit, onClosed: () -> Unit, onOpen: (String) -> Unit) {
     val context = LocalContext.current
     val openFormatted by viewModel.openFormatted.collectAsStateWithLifecycle()
-    val labels by viewModel.labels.collectAsStateWithLifecycle()
     var formatted by rememberSaveable(session.openedAs) { mutableStateOf(openFormatted && !session.isNew) }
     val titleFocus = remember { FocusRequester() }
     val bodyFocus = remember { FocusRequester() }
@@ -204,7 +198,6 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
     val ready = session.text != null
     LaunchedEffect(session.openedAs, ready) { if (session.isNew && ready) runCatching { titleFocus.requestFocus() } }
     var coloring by remember { mutableStateOf(false) }
-    var labeling by remember { mutableStateOf(false) }
     var reminding by remember { mutableStateOf(false) }
     var moving by remember { mutableStateOf(false) }
     var creatingNotebook by remember { mutableStateOf(false) }
@@ -238,16 +231,6 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
                     }
                 }
                 IconButton(onClick = { reminding = true }) { Icon(Icons.Outlined.AddAlert, stringResource(R.string.remind_me)) }
-                IconButton(onClick = {
-                    viewModel.setArchived(listOf(session.note), !meta.archived)
-                    // Archiving puts the note away, as in Keep; the Undo bar can bring it back.
-                    if (!meta.archived) onBack()
-                }) {
-                    Icon(
-                        if (meta.archived) Icons.Outlined.Unarchive else Icons.Outlined.Archive,
-                        stringResource(if (meta.archived) R.string.unarchive else R.string.archive),
-                    )
-                }
                 if (!session.listMode) {
                     IconButton(onClick = { formatted = !formatted }) {
                         AnimatedContent(targetState = formatted, transitionSpec = { bounceIn() togetherWith (scaleOut() + fadeOut()) }, label = "mode") { isFormatted ->
@@ -268,7 +251,6 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
                     session.toggleListMode()
                 },
                 onColor = { coloring = true },
-                onLabels = { labeling = true },
                 onMove = { moving = true },
                 onCopy = { viewModel.copy(session.note, onOpen) },
                 onShare = { shareNote(context, session.note.title, session.text?.text.orEmpty()) },
@@ -304,7 +286,6 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
                 titleFocus = titleFocus,
                 bodyFocus = bodyFocus,
                 onReminder = { reminding = true },
-                onLabels = { labeling = true },
                 onMove = { moving = true },
             )
         }
@@ -312,14 +293,6 @@ private fun Editor(viewModel: NotesViewModel, session: NoteSession, onBack: () -
 
     if (coloring) {
         ColorSheet(current = meta.color, onPick = { color -> session.updateMeta { it.copy(color = color) } }, onDismiss = { coloring = false })
-    }
-    if (labeling) {
-        LabelDialog(
-            labels = (labels + meta.tags).distinctBy { it.lowercase() },
-            state = { label -> if (meta.tags.any { it.equals(label, ignoreCase = true) }) ToggleableState.On else ToggleableState.Off },
-            onToggle = { label, add -> viewModel.setLabel(listOf(session.note), label, add) },
-            onDismiss = { labeling = false },
-        )
     }
     if (moving) {
         val library by viewModel.library.collectAsStateWithLifecycle()
@@ -369,7 +342,7 @@ private fun bounceIn() = scaleIn(spring(Spring.DampingRatioMediumBouncy, Spring.
 
 /**
  * Keep's bottom bar: add a picture or switch tick boxes, the colour palette, when it was last
- * edited, and a menu with move to a notebook, labels, copy, share, delete (and, for checklists, untick all and
+ * edited, and a menu with move to a notebook, copy, share, delete (and, for checklists, untick all and
  * delete ticked items). It rides above the keyboard.
  */
 @Composable
@@ -379,7 +352,6 @@ private fun BottomTools(
     onAddImage: () -> Unit,
     onToggleList: () -> Unit,
     onColor: () -> Unit,
-    onLabels: () -> Unit,
     onMove: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
@@ -421,7 +393,6 @@ private fun BottomTools(
             IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.more_options)) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 MenuItem(Icons.AutoMirrored.Outlined.DriveFileMove, stringResource(R.string.move_to_notebook)) { menu = false; onMove() }
-                MenuItem(Icons.AutoMirrored.Outlined.Label, stringResource(R.string.labels)) { menu = false; onLabels() }
                 if (session.listMode) {
                     MenuItem(Icons.Outlined.RemoveDone, stringResource(R.string.untick_all)) { menu = false; session.untickAll() }
                     MenuItem(Icons.Outlined.Delete, stringResource(R.string.delete_ticked)) { menu = false; session.deleteTicked() }
@@ -453,7 +424,6 @@ private fun NoteBody(
     titleFocus: FocusRequester,
     bodyFocus: FocusRequester,
     onReminder: () -> Unit,
-    onLabels: () -> Unit,
     onMove: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -591,14 +561,13 @@ private fun NoteBody(
                 }
             }
             val meta = session.meta
-            if (meta.reminder != null || meta.tags.isNotEmpty()) {
+            if (meta.reminder != null) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(top = 16.dp),
                 ) {
                     meta.reminder?.let { Chip(Icons.Outlined.Alarm, reminderLabel(it), onClick = onReminder) }
-                    meta.tags.forEach { Chip(null, it, onClick = onLabels) }
                 }
             }
         }

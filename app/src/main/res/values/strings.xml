@@ -31,7 +31,10 @@
     <string name="tab_notes">Notes</string>
     <string name="search_notes">Search notes</string>
     <string name="new_note">New note</string>
-    <string name="tab_browse">Browse</string>
+    <string name="tab_lists">Lists</string>
+    <string name="tab_organize">Organize</string>
+    <string name="no_lists_title">Your lists appear here</string>
+    <string name="no_lists_body">Tap + to make a shopping list, a to-do list or any other checklist.</string>
     <string name="no_notes_title">Notes you add appear here</string>
     <string name="no_notes_body">Tap New note to write one, or put .md files in “<xliff:g id="folder" example="Notes">%1$s</xliff:g>” and they\'ll show up here.</string>
     <plurals name="note_count">
@@ -73,7 +76,7 @@
     <string name="settings_monospace_summary">Write in a typewriter-style font where every letter is the same width</string>
     <string name="settings_about">About</string>
     <string name="about_title">Your notes are yours</string>
-    <string name="about_body">Every note is a Markdown file in your folder, named after its title. Pins, colours, labels and reminders are kept in the file too, in the front matter other Markdown apps use. Changes from other devices and apps show up by themselves.</string>
+    <string name="about_body">Every note is a Markdown file in your folder, named after its title, in a notebook laid out the way Folio keeps them. Pins, colours and reminders are kept in the file too. Changes from other devices and apps show up by themselves.</string>
 
     <!-- Keep-style features -->
     <string name="new_list">New list</string>
@@ -84,11 +87,8 @@
     <string name="others">Others</string>
     <string name="pin">Pin</string>
     <string name="unpin">Unpin</string>
-    <string name="archive">Archive</string>
-    <string name="unarchive">Unarchive</string>
     <string name="trash">Trash</string>
     <string name="reminders">Reminders</string>
-    <string name="labels">Labels</string>
     <string name="color">Colour</string>
     <string name="no_color">No colour</string>
     <string name="color_selected">Selected</string>
@@ -107,7 +107,6 @@
     <string name="indent">Indent</string>
     <string name="outdent">Outdent</string>
     <string name="edited_at">Edited <xliff:g id="time" example="3:42 PM">%1$s</xliff:g></string>
-    <string name="done">Done</string>
     <string name="save">Save</string>
     <string name="next">Next</string>
     <plurals name="selected_count">
@@ -123,20 +122,7 @@
         <item quantity="other">+<xliff:g id="count" example="4">%1$d</xliff:g> more items</item>
     </plurals>
 
-    <!-- Labels -->
-    <string name="label_note">Labels</string>
-    <string name="label_search">Find or make a label</string>
-    <string name="create_label">Create “<xliff:g id="label" example="Work">%1$s</xliff:g>”</string>
-    <string name="rename_label">Rename label</string>
-    <string name="delete_label">Delete label</string>
-    <string name="delete_label_title">Delete “<xliff:g id="label" example="Work">%1$s</xliff:g>”?</string>
-    <string name="delete_label_body">The label is taken off every note that has it. The notes themselves stay.</string>
-    <string name="label_empty_title">No notes with this label</string>
-    <string name="label_empty_body">Tap + to write one, or add the label to a note from its menu.</string>
-
-    <!-- Archive and trash -->
-    <string name="archive_empty_title">Your archived notes appear here</string>
-    <string name="archive_empty_body">Archive notes to get them out of the way without deleting them.</string>
+    <!-- Trash -->
     <string name="trash_empty_title">No notes in the trash</string>
     <string name="trash_empty_body">Deleted notes wait here for <xliff:g id="days" example="7">%1$d</xliff:g> days before they\'re gone for good.</string>
     <string name="trash_hint">Notes in the trash are deleted after <xliff:g id="days" example="7">%1$d</xliff:g> days.</string>
@@ -154,14 +140,6 @@
     <plurals name="trashed_many">
         <item quantity="one">Note moved to the trash</item>
         <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> notes moved to the trash</item>
-    </plurals>
-    <plurals name="archived_many">
-        <item quantity="one">Note archived</item>
-        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> notes archived</item>
-    </plurals>
-    <plurals name="unarchived_many">
-        <item quantity="one">Note unarchived</item>
-        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> notes unarchived</item>
     </plurals>
 
     <!-- Reminders -->

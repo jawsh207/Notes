@@ -30,10 +30,11 @@ class FabChoice(val label: String, val icon: ImageVector, val onClick: () -> Uni
 
 /**
  * The + button, as Material 3 Expressive's floating menu: tapping it springs open a stack of
- * choices (a note, a checklist, and any [extra] ones) while the + turns into a ×.
+ * choices (a note, a checklist, and any [extra] ones) while the + turns into a ×. With
+ * [listsOnly] it makes a checklist straight away instead.
  */
 @Composable
-fun NewNoteFab(onNote: () -> Unit, onList: () -> Unit, extra: List<FabChoice> = emptyList()) {
+fun NewNoteFab(onNote: () -> Unit, onList: () -> Unit, extra: List<FabChoice> = emptyList(), listsOnly: Boolean = false) {
     var open by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = open) { open = false }
     FloatingActionButtonMenu(
@@ -43,13 +44,14 @@ fun NewNoteFab(onNote: () -> Unit, onList: () -> Unit, extra: List<FabChoice> = 
         // offset follows right-to-left layouts, where the button sits on the left.
         modifier = Modifier.offset(x = 16.dp, y = 16.dp),
         button = {
-            ToggleFloatingActionButton(checked = open, onCheckedChange = { open = it }) {
+            // On the Lists tab there's nothing to choose between: the button makes a list.
+            ToggleFloatingActionButton(checked = open, onCheckedChange = { if (listsOnly) onList() else open = it }) {
                 // A quarter turn as it opens: + becomes ×. The button doesn't colour its icon itself,
                 // so the icon follows its container from primary container (closed) to primary (open).
                 val scheme = MaterialTheme.colorScheme
                 Icon(
                     Icons.Rounded.Add,
-                    stringResource(if (open) R.string.close_menu else R.string.new_note),
+                    stringResource(if (open) R.string.close_menu else if (listsOnly) R.string.new_list else R.string.new_note),
                     Modifier.graphicsLayer { rotationZ = checkedProgress * 45f },
                     tint = lerp(scheme.onPrimaryContainer, scheme.onPrimary, checkedProgress),
                 )

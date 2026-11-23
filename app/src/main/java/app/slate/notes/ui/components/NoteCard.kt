@@ -59,7 +59,7 @@ val CARD_SHAPE = RoundedCornerShape(20.dp)
 
 /**
  * A note as a card, as in Google Keep: its picture, title, a few lines of text (or the first
- * checklist items), then its reminder, labels and notebook as small chips, all on the note's
+ * checklist items), then its reminder and notebook as small chips, all on the note's
  * colour. Tapping opens it, or in selection mode picks it; a long press starts selecting.
  * While [selected], it's outlined and ticked. In the grid ([inGrid]) cards show more lines
  * of text, as they're narrower. The card gives a little under the finger.
@@ -133,8 +133,6 @@ fun NoteCard(
                 }
                 val chips = mutableListOf<Pair<ImageVector?, String>>()
                 meta?.reminder?.let { chips += Icons.Outlined.Alarm to reminderLabel(it) }
-                meta?.tags?.take(3)?.forEach { chips += null to it }
-                meta?.tags?.size?.takeIf { it > 3 }?.let { chips += null to "+${it - 3}" }
                 if (showFolder && note.notebook.isNotEmpty()) chips += Icons.AutoMirrored.Outlined.MenuBook to note.notebook
                 if (chips.isNotEmpty()) {
                     FlowRow(
@@ -196,7 +194,7 @@ private fun ChecklistLine(text: String, checked: Boolean, depth: Int) {
     }
 }
 
-/** A small rounded label on a card or under a note: a reminder, a label or a folder. */
+/** A small rounded tag on a card or under a note: a reminder or a notebook. */
 @Composable
 fun Chip(icon: ImageVector?, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     val scheme = MaterialTheme.colorScheme

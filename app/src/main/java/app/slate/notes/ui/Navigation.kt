@@ -8,7 +8,7 @@ import androidx.compose.runtime.toMutableStateList
 
 /** The app's screens. Home holds the bottom tabs; the others cover them. */
 sealed interface Screen {
-    /** The Notes and Browse tabs. */
+    /** The Notes, Lists and Organize tabs. */
     data object Home : Screen
 
     /** Finding notes by their words. */
@@ -20,14 +20,8 @@ sealed interface Screen {
     /** One notebook's notes, by the notebook's name. */
     data class Notebook(val name: String) : Screen
 
-    /** The notes with one label. */
-    data class Label(val name: String) : Screen
-
     /** Notes with a reminder, soonest first. */
     data object Reminders : Screen
-
-    /** Archived notes. */
-    data object Archive : Screen
 
     /** Notes in the trash. */
     data object Trash : Screen
@@ -41,9 +35,7 @@ private fun Screen.encode(): String = when (this) {
     Screen.Search -> "search"
     is Screen.Note -> "note:$id"
     is Screen.Notebook -> "notebook:$name"
-    is Screen.Label -> "label:$name"
     Screen.Reminders -> "reminders"
-    Screen.Archive -> "archive"
     Screen.Trash -> "trash"
     Screen.Settings -> "settings"
 }
@@ -53,11 +45,9 @@ private fun decode(text: String): Screen? = when {
     text == "search" -> Screen.Search
     text == "settings" -> Screen.Settings
     text == "reminders" -> Screen.Reminders
-    text == "archive" -> Screen.Archive
     text == "trash" -> Screen.Trash
     text.startsWith("note:") -> Screen.Note(text.removePrefix("note:"))
     text.startsWith("notebook:") -> Screen.Notebook(text.removePrefix("notebook:"))
-    text.startsWith("label:") -> Screen.Label(text.removePrefix("label:"))
     else -> null
 }
 

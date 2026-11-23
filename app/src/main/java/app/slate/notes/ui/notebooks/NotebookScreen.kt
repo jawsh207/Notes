@@ -46,7 +46,7 @@ import app.slate.notes.ui.notes.noteCards
 import app.slate.notes.ui.notes.rememberSelection
 
 /**
- * One notebook's page: its notes (not archived) as cards, the + menu to write a note or a
+ * One notebook's page: its notes as cards, the + menu to write a note or a
  * checklist in it, and a menu to rename it, change its colour, or move it to the trash.
  * [onRenamed] is told the new name, so the back stack follows it.
  */
@@ -69,7 +69,7 @@ fun NotebookScreen(
     var menu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
-    val notes = library?.notes.orEmpty().filter { it.notebook.equals(name, ignoreCase = true) && infos[it.id]?.meta?.archived != true }
+    val notes = library?.notes.orEmpty().filter { it.notebook.equals(name, ignoreCase = true) }
     LaunchedEffect(notes) { selection.retain(notes.mapTo(HashSet()) { it.id }) }
     BackHandler(enabled = selection.active) { selection.clear() }
 

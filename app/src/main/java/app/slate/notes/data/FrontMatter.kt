@@ -3,7 +3,7 @@ package app.slate.notes.data
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-// Pins, colours, labels, archiving and reminders are kept in the note's own file, in the YAML
+// Pins, colours and reminders are kept in the note's own file, in the YAML
 // "front matter" block at the top that Obsidian, Jekyll, Hugo and other Markdown tools use:
 //
 //     ---
@@ -45,10 +45,10 @@ enum class NoteColor(val key: String) {
 data class NoteMeta(
     /** Shown at the top of the lists. */
     val pinned: Boolean = false,
-    /** Moved out of the main list into Archive. */
+    /** Archived by an earlier version of the app. No longer used, but kept in the file as written. */
     val archived: Boolean = false,
     val color: NoteColor = NoteColor.Default,
-    /** Labels, as Obsidian's "tags". */
+    /** Labels ("tags", as Obsidian writes them). No longer shown, but kept in the file as written. */
     val tags: List<String> = emptyList(),
     /** When to remind, in the phone's local time. */
     val reminder: LocalDateTime? = null,

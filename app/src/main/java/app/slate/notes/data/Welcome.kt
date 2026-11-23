@@ -62,7 +62,9 @@ keep text exactly as typed.
 
 A line of three dashes draws a line across the page, like the one above.
 
-## Pins, colours and labels
+## Notebooks, pins and colours
 
-This note is **pinned**, so it stays at the top. Use the pin, palette and label buttons to organise your notes. They're saved inside each file, at the very top.
+Notes live in notebooks, which you'll find on the **Organize** tab. This note is in **Unsorted**. Make your own and move notes into them from a note's menu.
+
+This note is also **pinned**, so it stays at the top. Use the pin and palette buttons to make notes stand out; they're saved at the very top of each file.
 """.trimStart()

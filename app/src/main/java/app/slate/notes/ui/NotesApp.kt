@@ -25,14 +25,15 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.outlined.Alarm
-import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.ViewAgenda
@@ -72,7 +73,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.slate.notes.R
-import app.slate.notes.ui.browse.BrowseTab
+import app.slate.notes.ui.organize.OrganizeTab
 import app.slate.notes.ui.components.BottomBar
 import app.slate.notes.ui.components.FabChoice
 import app.slate.notes.ui.components.NewNoteFab
@@ -95,7 +96,8 @@ import kotlinx.coroutines.launch
 /** The two bottom tabs, in order. Notes is home. */
 enum class Tab(@StringRes val label: Int, val icon: ImageVector, val selectedIcon: ImageVector) {
     Notes(R.string.tab_notes, Icons.Outlined.Lightbulb, Icons.Filled.Lightbulb),
-    Browse(R.string.tab_browse, Icons.Outlined.Explore, Icons.Filled.Explore),
+    Lists(R.string.tab_lists, Icons.Outlined.Checklist, Icons.Filled.Checklist),
+    Organize(R.string.tab_organize, Icons.Outlined.Folder, Icons.Filled.Folder),
 }
 
 /**
@@ -132,8 +134,8 @@ private fun Screens(viewModel: NotesViewModel) {
     }
     BackHandler(enabled = stack.size > 1, onBack = back)
     val openNote: (String) -> Unit = { open(Screen.Note(it)) }
-    val newNote: (notebook: String?, list: Boolean, label: String?) -> Unit = { notebook, list, label ->
-        viewModel.createNote(notebook, list, label) { id -> open(Screen.Note(id)) }
+    val newNote: (notebook: String?, list: Boolean) -> Unit = { notebook, list ->
+        viewModel.createNote(notebook, list) { id -> open(Screen.Note(id)) }
     }
 
     // A note asked for by a reminder notification opens once the folder has been read.
@@ -146,7 +148,7 @@ private fun Screens(viewModel: NotesViewModel) {
         if (library?.notes?.any { it.id == id } == true) open(Screen.Note(id))
     }
 
-    // Undo for notes just trashed or archived.
+    // Undo for notes just moved to the trash.
     val snackbar = remember { SnackbarHostState() }
     val undo by viewModel.undo.collectAsStateWithLifecycle()
     LaunchedEffect(undo) {
@@ -158,8 +160,6 @@ private fun Screens(viewModel: NotesViewModel) {
         val message = when (action.kind) {
             UndoKind.Trashed -> action.title?.let { context.getString(R.string.trashed_one, it) }
                 ?: context.resources.getQuantityString(R.plurals.trashed_many, action.count, action.count)
-            UndoKind.Archived -> context.resources.getQuantityString(R.plurals.archived_many, action.count, action.count)
-            UndoKind.Unarchived -> context.resources.getQuantityString(R.plurals.unarchived_many, action.count, action.count)
         }
         val result = snackbar.showSnackbar(message, actionLabel = context.getString(R.string.undo), duration = SnackbarDuration.Long)
         if (result == SnackbarResult.ActionPerformed) action.undo()
@@ -194,17 +194,6 @@ private fun Screens(viewModel: NotesViewModel) {
                 Screen.Search -> SearchScreen(viewModel, onOpen = openNote, onBack = back)
                 Screen.Settings -> SettingsScreen(viewModel, onBack = back)
                 Screen.Trash -> TrashScreen(viewModel, onBack = back)
-                Screen.Archive -> CollectionScreen(
-                    viewModel,
-                    title = stringResource(R.string.archive),
-                    filter = { _, info -> info?.meta?.archived == true },
-                    emptyIcon = Icons.Outlined.Archive,
-                    emptyTitle = stringResource(R.string.archive_empty_title),
-                    emptyBody = stringResource(R.string.archive_empty_body),
-                    onOpen = openNote,
-                    onBack = back,
-                    pinSections = false,
-                )
                 Screen.Reminders -> CollectionScreen(
                     viewModel,
                     title = stringResource(R.string.reminders),
@@ -219,13 +208,10 @@ private fun Screens(viewModel: NotesViewModel) {
                         notes.sortedBy { infos[it.id]?.meta?.reminder }
                     },
                 )
-                is Screen.Label -> LabelScreen(viewModel, screen.name, openNote, newNote, back) { renamed ->
-                    stack[stack.lastIndex] = Screen.Label(renamed)
-                }
                 is Screen.Notebook -> NotebookScreen(
                     viewModel, screen.name,
                     onOpen = openNote,
-                    onNew = { list -> newNote(screen.name, list, null) },
+                    onNew = { list -> newNote(screen.name, list) },
                     onRenamed = { renamed -> stack[stack.lastIndex] = Screen.Notebook(renamed) },
                     onBack = back,
                 )
@@ -249,82 +235,13 @@ private fun Screens(viewModel: NotesViewModel) {
     }
 }
 
-/** A label's page: its notes, a + that makes notes with the label, and a menu to rename or delete the label. */
-@Composable
-private fun LabelScreen(
-    viewModel: NotesViewModel,
-    label: String,
-    onOpen: (String) -> Unit,
-    newNote: (String?, Boolean, String?) -> Unit,
-    onBack: () -> Unit,
-    onRenamed: (String) -> Unit,
-) {
-    var menu by remember { mutableStateOf(false) }
-    var renaming by remember { mutableStateOf(false) }
-    var deleting by remember { mutableStateOf(false) }
-    CollectionScreen(
-        viewModel,
-        title = label,
-        filter = { _, info -> info?.meta?.tags?.any { it.equals(label, ignoreCase = true) } == true },
-        emptyIcon = Icons.AutoMirrored.Outlined.Label,
-        emptyTitle = stringResource(R.string.label_empty_title),
-        emptyBody = stringResource(R.string.label_empty_body),
-        onOpen = onOpen,
-        onBack = onBack,
-        actions = {
-            Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.more_options)) }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.rename_label)) },
-                        leadingIcon = { Icon(Icons.Outlined.Edit, null) },
-                        onClick = { menu = false; renaming = true },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.delete_label)) },
-                        leadingIcon = { Icon(Icons.Outlined.Delete, null) },
-                        onClick = { menu = false; deleting = true },
-                    )
-                }
-            }
-        },
-        fab = { NewNoteFab(onNote = { newNote(null, false, label) }, onList = { newNote(null, true, label) }) },
-    )
-    if (renaming) {
-        TextInputDialog(
-            title = stringResource(R.string.rename_label),
-            initial = label,
-            confirmLabel = stringResource(R.string.save),
-            onConfirm = { name ->
-                renaming = false
-                viewModel.renameLabel(label, name)
-                onRenamed(app.slate.notes.data.cleanLabel(name))
-            },
-            onDismiss = { renaming = false },
-        )
-    }
-    if (deleting) {
-        AlertDialog(
-            onDismissRequest = { deleting = false },
-            title = { Text(stringResource(R.string.delete_label_title, label)) },
-            text = { Text(stringResource(R.string.delete_label_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = false
-                    viewModel.deleteLabel(label)
-                    onBack()
-                }) { Text(stringResource(R.string.delete)) }
-            },
-            dismissButton = { TextButton(onClick = { deleting = false }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
-}
-
 /**
- * The bottom tabs, as swipeable pages (as in Contacts and Dialtone): swipe between them or tap
- * the bottom bar. Back from Browse returns to Notes. The + springs open into New note and New
- * list (and New notebook on Browse); new notes go into the notebook the Notes tab is showing. Long-pressing a card picks it, and the search bar becomes a
- * bar of actions for the picked notes.
+ * The bottom tabs, as swipeable pages (as in Contacts and Dialtone): Notes, Lists (only the
+ * checklists) and Organize. Swipe between them or tap the bottom bar; back from another tab
+ * returns to Notes. The + springs open into New note and New list (and New notebook on
+ * Organize); on Lists it makes a list straight away. New notes go into the notebook being
+ * shown. Long-pressing a card picks it, and the search bar becomes a bar of actions for the
+ * picked notes.
  */
 @Composable
 private fun Home(
@@ -332,7 +249,7 @@ private fun Home(
     tab: Tab,
     onTabChange: (Tab) -> Unit,
     open: (Screen) -> Unit,
-    newNote: (String?, Boolean, String?) -> Unit,
+    newNote: (String?, Boolean) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val pager = rememberPagerState(initialPage = tab.ordinal) { Tab.entries.size }
@@ -340,17 +257,19 @@ private fun Home(
     val current = Tab.entries[pager.targetPage]
     LaunchedEffect(pager.settledPage) { onTabChange(Tab.entries[pager.settledPage]) }
     val notesGrid = rememberLazyStaggeredGridState()
-    val browseList = rememberLazyListState()
+    val listsGrid = rememberLazyStaggeredGridState()
+    val organizeList = rememberLazyListState()
+    // One selection, on whichever of Notes and Lists is showing; switching tabs lets it go.
     val selection = rememberSelection()
-    val selecting = selection.active && current == Tab.Notes
-    LaunchedEffect(current) { if (current != Tab.Notes) selection.clear() }
+    val selecting = selection.active && current != Tab.Organize
+    LaunchedEffect(current) { selection.clear() }
     BackHandler(enabled = selecting) { selection.clear() }
     BackHandler(enabled = current != Tab.Notes && !selecting) { scope.launch { pager.animateScrollToPage(Tab.Notes.ordinal) } }
     val inGrid by viewModel.grid.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(false) }
-    // The notebook the Notes tab is showing; null for all of them. New notes go into it.
+    // The notebook the Notes and Lists tabs are showing; null for all of them. New notes go into it.
     var notebook by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -359,7 +278,10 @@ private fun Home(
             Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
                 AnimatedContent(targetState = selecting, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "bar") { picking ->
                     if (picking) {
-                        val visible = library?.notes.orEmpty().filter { infos[it.id]?.meta?.archived != true }
+                        val visible = library?.notes.orEmpty().filter { note ->
+                            (current != Tab.Lists || infos[note.id]?.checklist != null) &&
+                                (notebook == null || note.notebook.equals(notebook, ignoreCase = true))
+                        }
                         SelectedNotesBar(viewModel, selection, visible, onOpen = { open(Screen.Note(it)) })
                     } else {
                         SearchPill(
@@ -388,9 +310,10 @@ private fun Home(
         floatingActionButton = {
             if (!selecting) {
                 NewNoteFab(
-                    onNote = { newNote(notebook, false, null) },
-                    onList = { newNote(notebook, true, null) },
-                    extra = if (current == Tab.Browse) {
+                    onNote = { newNote(notebook, false) },
+                    onList = { newNote(notebook, true) },
+                    listsOnly = current == Tab.Lists,
+                    extra = if (current == Tab.Organize) {
                         listOf(FabChoice(stringResource(R.string.new_notebook), Icons.AutoMirrored.Outlined.MenuBook) { creating = true })
                     } else {
                         emptyList()
@@ -425,7 +348,15 @@ private fun Home(
                     onNewNotebook = { creating = true },
                     onOpen = { open(Screen.Note(it)) },
                 )
-                Tab.Browse -> BrowseTab(viewModel, padding, browseList, open, onNewNotebook = { creating = true })
+                Tab.Lists -> NotesTab(
+                    viewModel, padding, listsGrid, selection,
+                    notebook = notebook,
+                    onNotebookChange = { notebook = it },
+                    onNewNotebook = { creating = true },
+                    onOpen = { open(Screen.Note(it)) },
+                    listsOnly = true,
+                )
+                Tab.Organize -> OrganizeTab(viewModel, padding, organizeList, open, onNewNotebook = { creating = true })
             }
         }
     }
@@ -440,8 +371,8 @@ private fun Home(
                 viewModel.createNotebook(name, color).also { made ->
                     if (made) {
                         creating = false
-                        // A notebook made from the Notes tab is shown straight away, ready for notes.
-                        if (current == Tab.Notes) notebook = cleanNotebookName(name)
+                        // A notebook made from the Notes or Lists tab is shown straight away, ready for notes.
+                        if (current != Tab.Organize) notebook = cleanNotebookName(name)
                     }
                 }
             },

@@ -1,18 +1,18 @@
-package app.slate.notes.ui.browse
+package app.slate.notes.ui.organize
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Alarm
-import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Add
@@ -42,12 +42,12 @@ import app.slate.notes.ui.components.SectionHeader
 import app.slate.notes.ui.components.segmentShape
 
 /**
- * The Browse tab, in place of Google Keep's side drawer: Reminders, Archive and Trash, every
- * label, and the notebooks in their colours, each with how many notes it holds, and a row to
- * make a notebook.
+ * The Organize tab: the notebooks in their colours, each with how many notes it holds, and a
+ * row to make one; then Reminders and the Trash. Only what works alongside Folio lives here,
+ * plus reminders.
  */
 @Composable
-fun BrowseTab(
+fun OrganizeTab(
     viewModel: NotesViewModel,
     contentPadding: PaddingValues,
     listState: LazyListState,
@@ -57,7 +57,6 @@ fun BrowseTab(
     val colors by viewModel.notebookColors.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
-    val labels by viewModel.labels.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val current = library
 
@@ -73,25 +72,10 @@ fun BrowseTab(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 8.dp, bottom = contentPadding.calculateBottomPadding() + 96.dp),
+                contentPadding = PaddingValues(top = 0.dp, bottom = contentPadding.calculateBottomPadding() + 96.dp),
                 verticalArrangement = Arrangement.spacedBy(SEGMENT_GAP),
             ) {
-                val places = listOf(
-                    Place(Icons.Outlined.Alarm, R.string.reminders, current.count(infos) { it?.meta?.reminder != null }, Screen.Reminders),
-                    Place(Icons.Outlined.Archive, R.string.archive, current.count(infos) { it?.meta?.archived == true }, Screen.Archive),
-                    Place(Icons.Outlined.Delete, R.string.trash, current.trash.size, Screen.Trash),
-                )
-                itemsIndexed(places, key = { _, place -> "place:${place.title}" }) { index, place ->
-                    BrowseRow(place.icon, stringResource(place.title), place.count, index, places.size, Modifier.animateItem()) { open(place.screen) }
-                }
-                if (labels.isNotEmpty()) {
-                    item(key = "labels") { SectionHeader(stringResource(R.string.labels), Modifier.animateItem()) }
-                    itemsIndexed(labels, key = { _, label -> "label:$label" }) { index, label ->
-                        val count = current.count(infos) { info -> info?.meta?.tags?.any { it.equals(label, ignoreCase = true) } == true }
-                        BrowseRow(Icons.AutoMirrored.Outlined.Label, label, count, index, labels.size, Modifier.animateItem()) { open(Screen.Label(label)) }
-                    }
-                }
-                item(key = "notebooks") { SectionHeader(stringResource(R.string.notebooks), Modifier.animateItem()) }
+                item(key = "notebooks") { SectionHeader(stringResource(R.string.notebooks), Modifier.animateItem(), start = 32.dp) }
                 itemsIndexed(notebooks, key = { _, notebook -> "notebook:${notebook.id}" }) { index, notebook ->
                     val count = current.notes.count { it.notebook.equals(notebook.name, ignoreCase = true) }
                     BrowseRow(
@@ -108,19 +92,27 @@ fun BrowseTab(
                         modifier = Modifier.padding(horizontal = 16.dp).animateItem(),
                     )
                 }
+                val places = listOf(
+                    Place(Icons.Outlined.Alarm, R.string.reminders, current.count(infos) { it?.meta?.reminder != null }, Screen.Reminders),
+                    Place(Icons.Outlined.Delete, R.string.trash, current.trash.size, Screen.Trash),
+                )
+                item(key = "places") { Spacer(Modifier.height(16.dp)) }
+                itemsIndexed(places, key = { _, place -> "place:${place.title}" }) { index, place ->
+                    BrowseRow(place.icon, stringResource(place.title), place.count, index, places.size, Modifier.animateItem()) { open(place.screen) }
+                }
             }
         }
     }
 }
 
-/** One of the fixed places at the top of Browse. */
+/** One of the fixed places under the notebooks: Reminders or the Trash. */
 private class Place(val icon: ImageVector, val title: Int, val count: Int, val screen: Screen)
 
 /** How many notes (not in the trash) [test] picks out. */
 private fun Library.count(infos: Map<String, NoteInfo>, test: (NoteInfo?) -> Boolean): Int = notes.count { test(infos[it.id]) }
 
 /**
- * A row in Browse: an icon (coloured with [iconTint] if given), a name, how many notes, and an
+ * A row in Organize: an icon (coloured with [iconTint] if given), a name, how many notes, and an
  * arrow. It keeps 16dp from the screen edges itself, unless [inset] is off because it sits in a
  * grid that already does.
  */

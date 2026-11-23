@@ -53,8 +53,8 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 
 /**
- * Finding notes, archived ones too: every word typed must appear in the title, the text or a
- * label. Title matches come first; each card shows the bit of text around the match.
+ * Finding notes: every word typed must appear in the title or the text. Title matches come
+ * first; each card shows the bit of text around the match.
  */
 @Composable
 fun SearchScreen(viewModel: NotesViewModel, onOpen: (String) -> Unit, onBack: () -> Unit) {
@@ -62,8 +62,7 @@ fun SearchScreen(viewModel: NotesViewModel, onOpen: (String) -> Unit, onBack: ()
     val library by viewModel.library.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
     val inGrid by viewModel.grid.collectAsStateWithLifecycle()
-    // Labels are searched along with the text.
-    val texts = remember(infos) { infos.mapValues { (_, info) -> info.body + "\n" + info.meta.tags.joinToString(" ") } }
+    val texts = remember(infos) { infos.mapValues { (_, info) -> info.body } }
     val hits = remember(query, library, texts) { searchNotes(library?.notes.orEmpty(), texts, query) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
