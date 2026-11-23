@@ -16,7 +16,26 @@ the app access to the one folder you choose, and the app keeps that access acros
 If the folder is moved or the access is taken away, the app asks you to pick it again.
 
 The app keeps only a small settings file for itself: which folder, display choices, which
-reminder alarms it has set, and where notes it put in the trash came from.
+reminder alarms it has set, and when it put notes in the trash.
+
+## Notebooks, and working with Folio
+
+The folder is laid out the way Folio, the GNOME notes app, keeps its notes, so the same folder
+works in both:
+
+- **Every note is in a notebook**, and a notebook is a folder at the top of the notes folder.
+  Folio only looks one level deep and ignores notes that aren't in a notebook, so the app keeps
+  to that: new notes go into the notebook being shown, or into **Unsorted**. Whenever the app
+  finds notes loose at the top (from its first version, or synced in from another app), it
+  moves them into Unsorted, with the pictures in a loose `attachments` folder, so their links
+  still work. A note being edited is left until it's closed.
+- **A notebook's colour** is kept in a hidden `.config/color` file inside it, written as
+  `rgb(53,132,228)`, exactly as Folio does, so both apps show the same colour.
+- **The trash** holds deleted notes in `.trash/<notebook>/`, as Folio's does. Putting one back
+  returns it to that notebook, making the notebook again if it's gone. Deleting a notebook moves
+  the whole thing there, as Folio does; if anything in it can't be moved, the notebook folder is
+  kept rather than deleted along with it.
+- Folio doesn't read front matter, so pins, colours, labels and reminders show there as text.
 
 ## What a note's file holds
 
@@ -56,9 +75,9 @@ a new note.
 | Screen | What it's for | File |
 | --- | --- | --- |
 | First run | A welcome with three short points about how notes are kept, and the button that opens the folder picker; also shown if the folder can't be reached | `ui/setup/SetupScreen.kt` |
-| Notes tab | Every note that isn't archived, as cards, pinned first; pull to refresh | `ui/notes/NotesTab.kt`, `ui/notes/NoteGrid.kt` |
-| Browse tab | Reminders, Archive, Trash, every label and the top folders | `ui/browse/BrowseTab.kt` |
-| Folder page | One folder's sub-folders and notes, with the + menu and New folder | `ui/folders/FolderScreen.kt` |
+| Notes tab | Every note that isn't archived, as cards, pinned first; notebook chips to show one notebook or make one; pull to refresh | `ui/notes/NotesTab.kt`, `ui/notes/NoteGrid.kt` |
+| Browse tab | Reminders, Archive, Trash, every label, the notebooks in their colours and New notebook | `ui/browse/BrowseTab.kt` |
+| Notebook page | One notebook's notes, the + menu, and editing (name, colour) or deleting the notebook | `ui/notebooks/NotebookScreen.kt` |
 | Label, Archive and Reminders pages | The notes with a label (rename or delete the label here), archived notes, notes with reminders soonest first | `ui/notes/CollectionScreen.kt`, `ui/NotesApp.kt` |
 | Trash | Notes in the trash, to put back or delete for good; Empty trash | `ui/notes/TrashScreen.kt` |
 | Note | Writing a note or checklist, pictures, the formatted view, pin, reminder, archive, colour, labels, copy, share, delete, sync cards | `ui/editor/EditorScreen.kt`, `ui/editor/ChecklistEditor.kt`, `ui/editor/MarkdownView.kt` |
@@ -84,12 +103,12 @@ turned into spaces when a title becomes a file name, and a number is added if th
 taken ("Ideas 2.md").
 
 **Welcome note.** The first time the app opens a folder, it makes a pinned "Welcome to Notes"
-note at its top, even if the folder already has notes: a hello and an example of every kind of
+note in Unsorted, even if the folder already has notes: a hello and an example of every kind of
 formatting, to compare in the editing and formatted views. It's an ordinary note to edit or
 delete. It's only made once per phone, and not when the folder already has a "Welcome to Notes"
 note (one made by another phone that shares the folder, say).
 
-**New notes and lists.** New note makes "Untitled.md" in the current folder; New list makes it
+**New notes and lists.** New note makes "Untitled.md" in the notebook being shown (or Unsorted); New list makes it
 with one empty checklist item. Either opens with the title ready to type. Leave the title blank
 and the note is named after its first line when you leave; leave the whole note empty and the
 file is removed. Made from a label's page, the note gets that label.
@@ -128,18 +147,18 @@ around its match.
 bar becomes a bar to pin, colour, archive or delete them all, with labels, a reminder, select
 all, copy and share in its menu.
 
-**Trash and Undo.** Deleting moves a note into a hidden `.trash` folder at the top of the notes
-folder (the one Obsidian uses), and offers Undo, as archiving does. The Trash page puts notes
-back where they came from, or deletes them for good. Notes this phone put in the trash are
-deleted for good after 7 days; it remembers where each came from so it can put it back. Notes
-trashed elsewhere go back to the top folder.
+**Trash and Undo.** Deleting moves a note into `.trash/<its notebook>/`, as Folio does, and
+offers Undo, as archiving does. The Trash page puts notes back in their notebooks, or deletes
+them for good. Notes this phone put in the trash are
+deleted for good after 7 days. Notes trashed by the app's first version, loose in the trash, go
+back to Unsorted.
 
 ## Jobs and where they're done
 
 | Job | File |
 | --- | --- |
-| Listing the folder and the trash, reading, writing, creating, renaming, moving and deleting files, saving pictures, and hearing about changes | `data/NoteStore.kt` |
-| Watching the folder, reading notes, the open note, new notes, front matter changes for many notes, trash, Undo, setting reminder alarms | `ui/NotesViewModel.kt` |
+| Listing the folder and the trash, reading, writing, creating, renaming, moving and deleting files and notebooks, notebook colours, saving pictures, and hearing about changes | `data/NoteStore.kt` |
+| Watching the folder, reading notes, the open note, new notes, notebooks, moving loose notes into Unsorted, front matter changes for many notes, trash, Undo, setting reminder alarms | `ui/NotesViewModel.kt` |
 | One open note: its three parts, saving after typing, checklist rows, pictures, taking in changes from elsewhere, conflicts, renaming | `ui/editor/NoteSession.kt` |
 | Reading and writing the front matter (pin, colour, labels, archive, reminder) | `data/FrontMatter.kt` |
 | Checklists: recognising them, reading and writing items, turning text into a checklist and back | `data/Checklist.kt` |
@@ -157,3 +176,5 @@ trashed elsewhere go back to the top folder.
 | The welcome note's text | `data/Welcome.kt` |
 | Sharing a note and opening links | `util/Share.kt` |
 | What a note, folder and the whole folder's contents are | `data/Models.kt` |
+| Notebook rules: which folders are notebooks, names, Folio's colour format, Unsorted | `data/Notebooks.kt` |
+| Notebook chips, the new/edit notebook dialog, Move to notebook and the delete question | `ui/notebooks/NotebookPieces.kt` |

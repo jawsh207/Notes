@@ -20,17 +20,23 @@ app reads and writes plain Markdown (`.md`) files in a folder on your phone that
 On first launch, pick (or create) a folder with the system folder picker. The app asks for no
 storage permission: the picker gives it access to that folder and nothing else. It asks to show
 notifications the first time you set a reminder. The app also puts a pinned "Welcome to Notes"
-note at the top of the folder, with an example of each kind of Markdown it formats; edit or
+note in the Unsorted notebook, with an example of each kind of Markdown it formats; edit or
 delete it as you like. It's only made once per phone, and not if the folder already has one.
 
 It works like Google Keep:
 
-- **Notes tab:** every note that isn't archived, from the folder and its sub-folders, as a grid
-  of cards (or a list; the button by the search bar switches). Pinned notes sit at the top. Pull
-  down to look at the folder again right away.
-- **Browse tab:** Reminders, Archive and Trash, every label, and your folders. A folder's page
-  shows its sub-folders and notes, and new notes made there are saved in it.
-- **New note or list:** the + button opens into New note and New list (and New folder on Browse).
+- **Notebooks:** every note is in a notebook, a folder at the top of your notes folder, laid out
+  the way [Folio](https://flathub.org/apps/com.toolstack.Folio) keeps them (see below). Notes
+  that aren't in one, and notes left loose at the top by another app, go to **Unsorted**.
+- **Notes tab:** every note that isn't archived, as a grid of cards (or a list; the button by the
+  search bar switches). Pinned notes sit at the top. Chips across the top show one notebook at a
+  time and make new ones. Pull down to look at the folder again right away.
+- **Browse tab:** Reminders, Archive and Trash, every label, and your notebooks in their colours.
+  A notebook's page shows its notes and can rename it, change its colour or delete it.
+- **New note or list:** the + button opens into New note and New list (and New notebook on
+  Browse). New notes go into the notebook being shown, or Unsorted.
+- **Moving notes:** tap the notebook under a note's title, use Move to notebook in its menu, or
+  pick several notes and move them together.
 - **Writing:** a note saves itself a moment after you stop typing, and when you leave it or
   switch apps. The title is the file name; changing it renames the file. A new note left
   without a title is named after its first line; one left completely empty is removed.
@@ -45,14 +51,30 @@ It works like Google Keep:
   links. Ticking a checkbox there writes the tick into the file (`- [ ]` becomes `- [x]`).
 - **Search:** finds notes containing every word typed, in the title, text or labels, ignoring case
   and accents.
-- **Trash:** deleting moves a note to a hidden `.trash` folder (the one Obsidian uses), with Undo.
-  The Trash page puts notes back or deletes them for good; notes deleted on this phone are
-  removed after 7 days.
+- **Trash:** deleting moves a note to `.trash/<notebook>/`, as Folio does, with Undo. Deleting
+  a notebook moves it there whole. The Trash page puts notes back in their notebook or deletes
+  them for good; notes deleted on this phone are removed after 7 days.
+
+### Using the same notes on a Linux desktop
+
+The notes folder is laid out the way [Folio](https://flathub.org/apps/com.toolstack.Folio), the
+GNOME notes app, keeps its notes, so the recommended way to use them on the desktop is to sync
+the folder (with Syncthing, say) and point Folio at it:
+
+- **Notebooks** are the folders at the top of the notes folder, one level deep, in both apps.
+  Notebooks made in either app show up in the other.
+- **Notebook colours** are shared: both apps keep them in a hidden `.config/color` file inside
+  the notebook.
+- **Trash:** both apps put deleted notes in `.trash/<notebook>/`. In Folio's preferences, set
+  the trash location to the notes folder too, so they share one trash.
+- Folio doesn't read front matter, so a note's pin, colour, labels or reminder show there as a
+  few lines of text at the top. Leave them be and they keep working here.
 
 ### What's in the files
 
 Files ending in `.md` or `.markdown` count as notes, read and written as UTF-8. Hidden folders
-(names starting with a dot, such as `.git`, `.obsidian` or `.stfolder`) are skipped. A checklist
+(names starting with a dot, such as `.git`, `.obsidian`, `.stfolder` or a notebook's `.config`)
+are skipped. A checklist
 is a note whose lines are all Markdown tasks (`- [ ] milk`). Pins, colours, labels, archiving
 and reminders are kept in the YAML front matter at the top of the file, which Obsidian and
 other Markdown tools understand:
