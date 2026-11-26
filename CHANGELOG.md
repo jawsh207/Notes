@@ -2,6 +2,18 @@
 
 What's new in each release of Notes. The newest is at the top.
 
+## 0.2.1
+
+Widgets
+- A List widget puts a checklist on your home screen, and you can tick items off right there.
+- A Note widget shows a note in its colour; tap it to open the note.
+- A Reminders widget lists your next reminders, soonest first.
+- A New note widget has New note and New list buttons.
+- List and Note widgets ask which note to show when you add them, and keep showing it when you rename it, move it to another notebook or rename its notebook. Notes changed on another device show up in widgets within about half an hour, or straight away when you open the app.
+
+Shortcuts
+- Long-press the app icon for New note and New list.
+
 ## 0.2.0
 
 Notebooks
