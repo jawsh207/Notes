@@ -11,3 +11,6 @@ This product includes:
 
 - The theme, bottom bar, search bar, grouped cards and empty states, reused from Contacts
   (https://github.com/jawsh207/Contacts), same owner, Apache License 2.0.
+
+- The note, list and bell icons of the widgets and shortcuts (app/src/main/res/drawable/ic_widget_*.xml),
+  from Google's Material Icons, under the Apache License 2.0.

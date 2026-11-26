@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- New note and New list, shown on a long press on the app icon. A shortcut has to name the app it opens, so test builds (app.slate.notes.dev) have their own copy of this file in src/dev. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_note"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_note"
+        android:shortcutShortLabel="@string/new_note">
+        <intent
+            android:action="app.slate.notes.action.NEW_NOTE"
+            android:targetClass="app.slate.notes.MainActivity"
+            android:targetPackage="app.slate.notes" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new_list"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_list"
+        android:shortcutShortLabel="@string/new_list">
+        <intent
+            android:action="app.slate.notes.action.NEW_LIST"
+            android:targetClass="app.slate.notes.MainActivity"
+            android:targetPackage="app.slate.notes" />
+    </shortcut>
+</shortcuts>

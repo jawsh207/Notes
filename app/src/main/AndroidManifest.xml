@@ -25,7 +25,69 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- New note and New list, on a long press on the app icon. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Picks a widget's note. Its own task, so it doesn't land on top of the app's screens. -->
+        <activity
+            android:name=".widgets.WidgetSetupActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Home screen widgets. The home screen sends these their updates. -->
+        <receiver
+            android:name=".widgets.NoteWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_note_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_note" />
+        </receiver>
+        <receiver
+            android:name=".widgets.ChecklistWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_checklist_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_checklist" />
+        </receiver>
+        <receiver
+            android:name=".widgets.RemindersWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_reminders_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_reminders" />
+        </receiver>
+        <receiver
+            android:name=".widgets.NewNoteWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_new_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_new" />
+        </receiver>
 
         <receiver
             android:name=".reminders.ReminderReceiver"

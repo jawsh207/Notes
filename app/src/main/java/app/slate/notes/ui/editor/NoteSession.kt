@@ -50,7 +50,8 @@ data class EditItem(val key: Long, val text: TextFieldValue, val checked: Boolea
  *
  * It lives in the view model rather than the screen, so a save that's due still happens after
  * the screen closes, and rotating the phone doesn't reload the note. [onSaved] is told after
- * each save, so the lists show the new text without reading it again.
+ * each save, so the lists show the new text without reading it again, and after a rename or
+ * move, so home screen widgets showing the note can follow it.
  */
 class NoteSession(
     private val store: NoteStore,
@@ -58,7 +59,8 @@ class NoteSession(
     private val scope: CoroutineScope,
     /** Whether the note was just made with a New button, so closing it untouched removes it. */
     val isNew: Boolean,
-    private val onSaved: (Note, String) -> Unit,
+    /** Told the note as saved, its text, and the id it had before (different after a rename or move). */
+    private val onSaved: (note: Note, text: String, previousId: String) -> Unit,
 ) {
     /** The note as it is now. Its id changes when it's renamed. */
     var note by mutableStateOf(initial)
@@ -330,7 +332,7 @@ class NoteSession(
             ok.onSuccess { modified ->
                 saved = current
                 savedModified = modified ?: savedModified
-                onSaved(note.copy(modified = savedModified, size = current.toByteArray().size.toLong()), current)
+                onSaved(note.copy(modified = savedModified, size = current.toByteArray().size.toLong()), current, id)
             }
             // A failed write leaves the text marked unsaved; the next edit or check tries again.
             saving = full() != saved
@@ -398,13 +400,14 @@ class NoteSession(
                 val made = runCatching {
                     withContext(Dispatchers.IO) { store.create(note.parentId, note.folder, title.ifBlank { note.title }, current) }
                 }.getOrNull() ?: return@launch
+                val previous = note.id
                 note = made
                 title = made.title
                 saved = current
                 savedModified = made.modified
                 gone = false
                 missedChecks = 0
-                onSaved(made, current)
+                onSaved(made, current, previous)
             }
         }
     }
@@ -435,8 +438,9 @@ class NoteSession(
             }
             val renamed = runCatching { withContext(Dispatchers.IO) { store.rename(note, wanted) } }.getOrNull()
             if (renamed != null) {
+                val previous = note.id
                 note = renamed
-                onSaved(renamed, saved)
+                onSaved(renamed, saved, previous)
             }
             title = note.title
         }
@@ -455,7 +459,7 @@ class NoteSession(
             val moved = runCatching { withContext(Dispatchers.IO) { store.move(current, notebookId, notebook) } }.getOrNull() ?: return
             note = moved
             savedModified = withContext(Dispatchers.IO) { store.modified(moved.id) } ?: savedModified
-            onSaved(moved, saved)
+            onSaved(moved, saved, current.id)
         }
     }
 

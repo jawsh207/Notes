@@ -14,8 +14,9 @@ import app.slate.notes.ui.NotesViewModel
 import app.slate.notes.ui.theme.NotesTheme
 
 /**
- * The app's only screen holder. Everything inside is drawn by [NotesApp]. It also takes the
- * tap on a reminder notification, which asks for that note to be opened.
+ * The app's only screen holder. Everything inside is drawn by [NotesApp]. It also takes what
+ * comes from outside the app: a tap on a reminder notification or a widget, which asks for that
+ * note to be opened, and the New note and New list shortcuts and widget buttons.
  */
 class MainActivity : ComponentActivity() {
     private val viewModel: NotesViewModel by viewModels()
@@ -42,13 +43,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(intent: Intent?) {
-        if (intent?.action != ACTION_OPEN_NOTE) return
-        intent.getStringExtra(ReminderAlarms.EXTRA_NOTE_ID)?.let(viewModel::requestOpen)
+        when (intent?.action) {
+            ACTION_OPEN_NOTE -> intent.getStringExtra(ReminderAlarms.EXTRA_NOTE_ID)?.let(viewModel::requestOpen)
+            ACTION_NEW_NOTE -> viewModel.requestNew(list = false)
+            ACTION_NEW_LIST -> viewModel.requestNew(list = true)
+        }
     }
 
-    /** Opens a note: what a reminder notification's tap sends. */
+    /** The actions other parts of the phone send to open a note or start a new one. */
     companion object {
-        /** The action of an intent that opens the note named in its extras. */
+        /** The action of an intent that opens the note named in its extras: a reminder's or widget's tap. */
         const val ACTION_OPEN_NOTE = "app.slate.notes.action.OPEN_NOTE"
+
+        /** Makes a new note in Unsorted and opens it (the New note shortcut and widget button). */
+        const val ACTION_NEW_NOTE = "app.slate.notes.action.NEW_NOTE"
+
+        /** Makes a new list in Unsorted and opens it (the New list shortcut and widget button). */
+        const val ACTION_NEW_LIST = "app.slate.notes.action.NEW_LIST"
     }
 }

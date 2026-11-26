@@ -71,6 +71,39 @@ whether to keep your version or use theirs, and nothing is saved until you choos
 disappears (deleted, or renamed or moved elsewhere), a card offers to save what's on screen as
 a new note.
 
+## Widgets and shortcuts
+
+Widgets are drawn by the home screen, not the app, so each one reads the folder itself, the same
+way the app does:
+
+- **List** shows one checklist, ticked items after the others (unless Settings says otherwise),
+  in the note's colour. Ticking a box reads the file again, and if that line still says what the
+  widget showed, changes just its tick box and saves; if the file changed in the meantime,
+  nothing is written and the widget shows the list as it is now. If the app has the list open,
+  it takes in the change as it would one from another device.
+- **Note** shows one note in its colour, with headings in bold and list marks and tick boxes as
+  plain characters, since widgets can't draw formatted text. It scrolls when it's long.
+- **Reminders** lists the next reminders, soonest first. It reads the list of alarms the app
+  keeps, so it shows what the app found the last time it read the folder.
+- **New note** has two buttons, New note and New list, which open the app on a fresh note or list
+  in Unsorted. Small, they're icons only.
+
+Placing a List or Note widget opens a page listing the notes (or only the lists) by notebook,
+pinned first, to pick one. The app remembers each widget's note by its file and its place in the
+folder, so it still finds the note after the app renames it, moves it to another notebook,
+renames its notebook, or the trash puts it back. A note deleted, or renamed on another device,
+can't be followed: the widget says so and offers to pick another.
+
+Widgets are refreshed a second after the app sees any change in the folder (including its own
+saves), right after a tick in a widget, and every half hour in the background while a widget that
+reads the folder is on the home screen. The background refresh is how notes synced in while the
+app is closed reach the widgets, and how "Today" becomes "Tomorrow" overnight; it stops when the
+last such widget is removed.
+
+A long press on the app icon offers **New note** and **New list**, which do the same as the
+widget's buttons. Test builds have their own copy of the shortcut list, because a shortcut has
+to name the app it opens.
+
 ## Screens
 
 | Screen | What it's for | File |
@@ -85,6 +118,11 @@ a new note.
 | Note | Writing a note or checklist, pictures, the formatted view, pin, reminder, colour, notebook, copy, share, delete, sync cards | `ui/editor/EditorScreen.kt`, `ui/editor/ChecklistEditor.kt`, `ui/editor/MarkdownView.kt` |
 | Search | Finding notes by words in the title or text | `ui/search/SearchScreen.kt` |
 | Settings | Notes folder, sort order, open formatted, fixed-width font, grid view, ticked items to the bottom | `ui/settings/SettingsScreen.kt` |
+| Widget setup | Picking the note or list a widget shows, by notebook | `widgets/WidgetSetupActivity.kt` |
+| List widget | One checklist on the home screen, with tick boxes | `widgets/ChecklistWidget.kt` |
+| Note widget | One note on the home screen | `widgets/NoteWidget.kt` |
+| Reminders widget | The next reminders | `widgets/RemindersWidget.kt` |
+| New note widget | New note and New list buttons | `widgets/NewNoteWidget.kt` |
 
 The main screen (the three tabs with the search bar, the + menu and the bottom bar), moving
 between screens with their sliding, springy transitions, and the Undo bar are in
@@ -167,13 +205,19 @@ back to Unsorted.
 | What the lists show about each note | `data/NoteInfo.kt` |
 | Quick reminder times, reminder and trash records, how long the trash keeps notes | `data/Reminders.kt` |
 | Setting and cancelling alarms; the reminder notification and setting alarms again after a restart | `reminders/ReminderAlarms.kt`, `reminders/ReminderReceiver.kt` |
-| Opening a note from a reminder notification | `MainActivity.kt` |
+| Opening a note from a reminder notification or widget; New note and New list from a shortcut or widget | `MainActivity.kt` |
+| Which note each widget shows, reading it, following it when the app renames or moves it, refreshing widgets, and the taps that open the app | `widgets/Widgets.kt` |
+| The widgets' shared look: panel, title row, messages | `widgets/WidgetParts.kt` |
+| Telling Android about each kind of widget; starting and stopping the background refresh | `widgets/WidgetReceivers.kt` |
+| The half-hourly background refresh of widgets | `widgets/WidgetRefreshWorker.kt` |
+| A widget's note: following renames and moves, the lines a note widget shows, ticking one item in the file, the reminders the widget lists | `data/Widgets.kt` |
+| The long-press shortcuts, and each widget's size and description in the widget picker | `app/src/main/res/xml/shortcuts.xml`, `app/src/main/res/xml/widget_*.xml` |
 | Deciding what to do when the open note's file changes | `data/Sync.kt` |
 | Reading Markdown for the formatted view, card previews and ticking checkboxes | `data/Markdown.kt` |
 | Which files are notes, titles, and safe, unique file names | `data/Names.kt` |
 | Sorting | `data/Sorting.kt` |
 | Search | `data/Search.kt` |
-| Settings | `data/Settings.kt` |
+| Settings (and which note each widget shows) | `data/Settings.kt` |
 | The welcome note's text | `data/Welcome.kt` |
 | Sharing a note and opening links | `util/Share.kt` |
 | What a note, folder and the whole folder's contents are | `data/Models.kt` |

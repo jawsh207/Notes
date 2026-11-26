@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The test build's copy of src/main/res/xml/shortcuts.xml, naming the test build's app id (app.slate.notes.dev). Keep the two the same otherwise. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_note"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_note"
+        android:shortcutShortLabel="@string/new_note">
+        <intent
+            android:action="app.slate.notes.action.NEW_NOTE"
+            android:targetClass="app.slate.notes.MainActivity"
+            android:targetPackage="app.slate.notes.dev" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new_list"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_list"
+        android:shortcutShortLabel="@string/new_list">
+        <intent
+            android:action="app.slate.notes.action.NEW_LIST"
+            android:targetClass="app.slate.notes.MainActivity"
+            android:targetPackage="app.slate.notes.dev" />
+    </shortcut>
+</shortcuts>

@@ -180,4 +180,35 @@
         <item quantity="one">The notebook and its note go to the trash, where the note can be put back.</item>
         <item quantity="other">The notebook and its <xliff:g id="count" example="12">%1$d</xliff:g> notes go to the trash, where they can be put back.</item>
     </plurals>
+
+    <!-- Home screen widgets -->
+    <string name="widget_note_name">Note</string>
+    <string name="widget_note_description">Keep a note on your home screen</string>
+    <string name="widget_checklist_name">List</string>
+    <string name="widget_checklist_description">Tick off a list from your home screen</string>
+    <string name="widget_reminders_name">Reminders</string>
+    <string name="widget_reminders_description">Your next reminders, soonest first</string>
+    <string name="widget_new_name">New note</string>
+    <string name="widget_new_description">Start a note or a list in one tap</string>
+    <string name="widget_choose_note">Choose a note</string>
+    <string name="widget_choose_list">Choose a list</string>
+    <string name="widget_choose_note_prompt">Tap to choose a note</string>
+    <string name="widget_choose_list_prompt">Tap to choose a list</string>
+    <string name="widget_choose_another">Choose another</string>
+    <string name="widget_missing">\u201c<xliff:g id="title" example="Shopping">%1$s</xliff:g>\u201d isn\'t in your notes folder any more</string>
+    <string name="widget_not_a_list">This note isn\'t a list any more</string>
+    <string name="widget_no_folder">Pick a notes folder in Notes first</string>
+    <string name="widget_no_folder_body">Open Notes and choose the folder your notes are in, then add the widget again.</string>
+    <string name="widget_open_app">Open Notes</string>
+    <string name="widget_empty_note">Nothing written yet</string>
+    <string name="widget_empty_list">Nothing on this list yet</string>
+    <string name="widget_no_reminders">No reminders coming up</string>
+    <string name="widget_no_notes">No notes yet</string>
+    <string name="widget_no_notes_body">Write a note in Notes, then add the widget again.</string>
+    <string name="widget_no_lists">No lists yet</string>
+    <string name="widget_no_lists_body">Make a list in Notes, then add the widget again.</string>
+    <plurals name="widget_items">
+        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> item</item>
+        <item quantity="other"><xliff:g id="count" example="5">%1$d</xliff:g> items</item>
+    </plurals>
 </resources>

@@ -49,3 +49,13 @@ fun noteSurface(color: NoteColor): Color =
 /** The swatch shown for [color] in the colour picker; null for [NoteColor.Default], which shows a "no colour" mark. */
 @Composable
 fun noteSwatch(color: NoteColor): Color? = (if (isDarkTheme()) DARK else LIGHT)[color]
+
+/**
+ * The light-mode and dark-mode colours for [color], for home screen widgets, which pick between
+ * them themselves as the phone switches; null for [NoteColor.Default].
+ */
+fun noteColorsDayNight(color: NoteColor): Pair<Color, Color>? {
+    val day = LIGHT[color] ?: return null
+    val night = DARK[color] ?: return null
+    return day to night
+}

@@ -23,6 +23,16 @@ fun parseChecklist(text: String): List<CheckItem> = text.split('\n').mapNotNull 
     CheckItem(match.groupValues[3].trimEnd(), match.groupValues[2] != " ", if (indent >= 2) 1 else 0)
 }
 
+/**
+ * The task lines of [text] as items, each with the line it's on (counting from 0), so a widget
+ * can tick one by changing just that line. Other lines are skipped.
+ */
+fun checklistLines(text: String): List<IndexedValue<CheckItem>> = text.split('\n').mapIndexedNotNull { index, line ->
+    val match = ITEM.matchEntire(line.removeSuffix("\r")) ?: return@mapIndexedNotNull null
+    val indent = match.groupValues[1].sumOf { if (it == '\t') 4 else 1 }
+    IndexedValue(index, CheckItem(match.groupValues[3].trimEnd(), match.groupValues[2] != " ", if (indent >= 2) 1 else 0))
+}
+
 /** [items] written as Markdown tasks, one per line, ending with a line break. */
 fun checklistText(items: List<CheckItem>): String =
     if (items.isEmpty()) "" else items.joinToString("\n", postfix = "\n") {

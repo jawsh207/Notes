@@ -138,7 +138,7 @@ private fun Screens(viewModel: NotesViewModel) {
         viewModel.createNote(notebook, list) { id -> open(Screen.Note(id)) }
     }
 
-    // A note asked for by a reminder notification opens once the folder has been read.
+    // A note asked for by a reminder notification or widget opens once the folder has been read.
     val request by viewModel.openRequest.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
     LaunchedEffect(request, library != null) {
@@ -146,6 +146,15 @@ private fun Screens(viewModel: NotesViewModel) {
         if (library == null) return@LaunchedEffect
         viewModel.openRequestHandled()
         if (library?.notes?.any { it.id == id } == true) open(Screen.Note(id))
+    }
+
+    // A new note or list asked for by a shortcut or widget, made once the folder has been read.
+    val newRequest by viewModel.newRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(newRequest, library != null) {
+        val list = newRequest ?: return@LaunchedEffect
+        if (library == null) return@LaunchedEffect
+        viewModel.newRequestHandled()
+        newNote(null, list)
     }
 
     // Undo for notes just moved to the trash.

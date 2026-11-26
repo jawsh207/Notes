@@ -120,6 +120,19 @@ class Settings(context: Context) {
         store.edit { it[REMINDERS] = reminders.map(::encodeReminder).toSet() }
     }
 
+    /** Which note each home screen widget shows, by the widget's id (widgets that show one note or list). */
+    val widgetNotes: Flow<Map<Int, WidgetNote>> =
+        store.data.map { prefs -> prefs[WIDGET_NOTES].orEmpty().mapNotNull(::decodeWidgetNote).toMap() }
+
+    /** Changes which notes the widgets show. */
+    suspend fun editWidgetNotes(change: (Map<Int, WidgetNote>) -> Map<Int, WidgetNote>) {
+        store.edit { prefs ->
+            val current = prefs[WIDGET_NOTES].orEmpty().mapNotNull(::decodeWidgetNote).toMap()
+            val changed = change(current)
+            if (changed != current) prefs[WIDGET_NOTES] = changed.map { (id, note) -> encodeWidgetNote(id, note) }.toSet()
+        }
+    }
+
     private companion object {
         val FOLDER = stringPreferencesKey("folder")
         val SORT = stringPreferencesKey("sort")
@@ -130,5 +143,6 @@ class Settings(context: Context) {
         val TICKED_TO_BOTTOM = booleanPreferencesKey("ticked_to_bottom")
         val TRASH_LOG = stringSetPreferencesKey("trash_log")
         val REMINDERS = stringSetPreferencesKey("reminders")
+        val WIDGET_NOTES = stringSetPreferencesKey("widget_notes")
     }
 }

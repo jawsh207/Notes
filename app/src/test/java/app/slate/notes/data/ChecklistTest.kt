@@ -24,6 +24,13 @@ class ChecklistTest {
     }
 
     @Test
+    fun linesOfItems() {
+        val lines = checklistLines("- [ ] milk\n\n  - [x] eggs\nnot an item\n")
+        assertEquals(listOf(0, 2), lines.map { it.index })
+        assertEquals(CheckItem("eggs", true, 1), lines[1].value)
+    }
+
+    @Test
     fun convertBothWays() {
         assertEquals("- [ ] milk\n- [ ] eggs\n- [ ] bread\n", textToChecklist("milk\n\n- eggs\n1. bread"))
         assertEquals("- [ ] \n", textToChecklist(""))

@@ -28,6 +28,7 @@ import app.slate.notes.data.trashExpired
 import app.slate.notes.data.writeMeta
 import app.slate.notes.reminders.ReminderAlarms
 import app.slate.notes.ui.editor.NoteSession
+import app.slate.notes.widgets.Widgets
 import java.text.Collator
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
@@ -139,8 +140,16 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _openRequest = MutableStateFlow<String?>(null)
 
-    /** A note to open that was asked for from outside the app (a reminder notification), by id. */
+    /** A note to open that was asked for from outside the app (a reminder notification or a widget), by id. */
     val openRequest: StateFlow<String?> = _openRequest.asStateFlow()
+
+    private val _newRequest = MutableStateFlow<Boolean?>(null)
+
+    /**
+     * A new note asked for from outside the app (a home screen shortcut or widget): true for a
+     * list, false for a note, null when nothing is waiting.
+     */
+    val newRequest: StateFlow<Boolean?> = _newRequest.asStateFlow()
 
     private val _notebookColors = MutableStateFlow<Map<String, Int>>(emptyMap())
 
@@ -266,6 +275,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }.getOrNull() ?: return
         val ids = moved.mapTo(HashSet()) { it.first }
         _library.value = _library.value?.let { current -> current.copy(notes = current.notes.filter { it.id !in ids } + moved.map { it.second }) }
+        Widgets.notesMoved(app, moved)
         poke()
     }
 
@@ -297,11 +307,14 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             // A provider that's briefly unavailable (an SD card being mounted, say): try next time.
             return@withLock true
         }
+        val before = _library.value to _infos.value
         if (scanned != _library.value) _library.value = scanned
         readInfos(opened, scanned)
         readNotebookColors(opened, scanned)
         emptyOldTrash(opened, scanned)
         syncReminders()
+        // Something in the folder changed, so widgets showing a note read it again.
+        if (_library.value != before.first || _infos.value != before.second) Widgets.refreshSoon(app)
         true
     }
 
@@ -404,6 +417,16 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         _openRequest.value = null
     }
 
+    /** Asks for a new note, or with [list] a new list, once the folder has been read (from a shortcut or widget). */
+    fun requestNew(list: Boolean) {
+        _newRequest.value = list
+    }
+
+    /** Marks the new-note request as handled. */
+    fun newRequestHandled() {
+        _newRequest.value = null
+    }
+
     /**
      * Makes a new note in [notebook] (Unsorted when none is given, made if it isn't there) and
      * opens it: an empty note, or with [list] a checklist with one empty item. Calls [onMade]
@@ -478,7 +501,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                     val id = if (clean == folder.name) folder.id else opened.renameFolder(folder.id, clean)
                     opened.setNotebookColor(id, color)
                 }
-            }
+            }.onSuccess { if (clean != folder.name) Widgets.notebookRenamed(app, folder.name, clean) }
             colorsReadFor = null
             poke()
         }
@@ -532,6 +555,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 val moved = runCatching { withContext(Dispatchers.IO) { opened.move(note, targetId, targetName) } }.getOrNull() ?: continue
                 _library.value = _library.value?.let { library -> library.copy(notes = library.notes.filter { it.id != note.id } + moved) }
                 _infos.value[note.id]?.let { info -> _infos.value = _infos.value - note.id + (moved.id to info) }
+                Widgets.notesMoved(app, listOf(note.id to moved))
             }
             poke()
         }
@@ -566,15 +590,22 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         poke()
     }
 
-    /** Shows a just-saved note's new text in the lists straight away. */
-    private fun onSaved(note: Note, text: String) {
+    /**
+     * Shows a just-saved note's new text in the lists straight away, and in any widget showing it.
+     * When it was renamed or moved ([previousId] isn't its id any more), widgets follow it.
+     */
+    private fun onSaved(note: Note, text: String, previousId: String) {
         val library = _library.value ?: return
         val opened = _session.value?.openedAs
         val others = library.notes.filter { it.id != note.id && it.id != opened }
         _library.value = library.copy(notes = others + note)
         _infos.value = _infos.value + (note.id to noteInfoOf(text, note.title))
         readStamps[note.id] = note.modified to note.size
-        viewModelScope.launch { syncReminders() }
+        viewModelScope.launch {
+            if (previousId != note.id) Widgets.notesMoved(app, listOf(previousId to note))
+            syncReminders()
+            Widgets.refreshSoon(app)
+        }
     }
 
     /**
@@ -600,7 +631,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                         updated to (opened.modified(note.id) ?: note.modified)
                     }
                 }.getOrNull() ?: continue
-                onSaved(note.copy(modified = written.second, size = written.first.toByteArray().size.toLong()), written.first)
+                onSaved(note.copy(modified = written.second, size = written.first.toByteArray().size.toLong()), written.first, note.id)
             }
             poke()
         }

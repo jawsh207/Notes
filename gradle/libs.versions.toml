@@ -11,6 +11,10 @@ material3 = "1.5.0-beta01"
 # Icons are no longer versioned in the Compose BOM; 1.7.8 is the final release.
 materialIcons = "1.7.8"
 datastore = "1.1.7"
+# Home screen widgets, drawn with Compose-style code.
+glance = "1.1.1"
+# The widgets' background refresh.
+work = "2.10.1"
 junit = "4.13.2"
 
 [libraries]
@@ -24,6 +28,8 @@ androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graph
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIcons" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]

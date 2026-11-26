@@ -56,6 +56,12 @@ It works like Google Keep:
 - **Trash:** deleting moves a note to `.trash/<notebook>/`, as Folio does, with Undo. Deleting
   a notebook moves it there whole. The Trash page puts notes back in their notebook or deletes
   them for good; notes deleted on this phone are removed after 7 days.
+- **Widgets:** four for the home screen. **List** shows a checklist with tick boxes that work
+  right there (a tick changes just that item's `- [ ]` in the file). **Note** shows a note in its
+  colour. Both ask which one when you place them; reconfigure the widget to pick another.
+  **Reminders** lists what's coming up, and **New note** has a New note and a New list button.
+  Tapping a note or reminder opens it in the app.
+- **Shortcuts:** a long press on the app icon offers New note and New list.
 
 ### Using the same notes on a Linux desktop
 
@@ -102,6 +108,11 @@ Reminders ring through Android alarms, which the app sets whenever it reads the 
 reminder added on another device rings once the app has seen it. They're on the minute when
 Android lets the app use exact alarms (Settings → Apps → Special app access → Alarms &
 reminders); otherwise Android may hold them for a few minutes.
+
+Widgets show what's in the files: they're updated as soon as the app sees a change (including
+one it made), after a tick in a widget, and every half hour in the background while any are on
+the home screen, so notes synced in while the app is closed catch up within about that long.
+The Reminders widget lists the reminders the app found the last time it read the folder.
 
 Changes are noticed straight away on the phone's own storage, which reports them. Other storage
 providers may not, so the app also looks at the folder every few seconds while it's on screen,
